@@ -25,6 +25,8 @@ export type MapControlsProps = {
   onResetView: () => void;
   onRulerToggle: () => void;
   isRulerActive: boolean;
+  onLassoToggle: () => void;
+  isLassoActive: boolean;
   position?: 'top-left' | 'top-right';
 };
 
@@ -120,12 +122,32 @@ const RulerIcon = () => (
   </svg>
 );
 
+const LassoIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    {/* Lasso rope loop — open at bottom-right leading into cursor */}
+    <path
+      d="M 15 13 C 22 10 23 4 17 1 C 12 0 5 1 2 6 C 0 11 4 15 9 15"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+    />
+    {/* Solid cursor arrow pointing lower-right */}
+    <path
+      d="M11 15 L11 22 L13.5 19.5 L15.5 22.5 L17 21.5 L15 18.5 L18.5 18.5 Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const MapControls = ({
   onZoomIn,
   onZoomOut,
   onResetView,
   onRulerToggle,
   isRulerActive,
+  onLassoToggle,
+  isLassoActive,
   position = 'top-left',
 }: MapControlsProps) => (
   <ControlsContainer $position={position}>
@@ -145,6 +167,15 @@ const MapControls = ({
         $isActive={isRulerActive}
       >
         <RulerIcon />
+      </ControlButton>
+      <ControlButton
+        onClick={onLassoToggle}
+        title={
+          isLassoActive ? 'Exit lasso mode (Esc)' : 'Lasso select features'
+        }
+        $isActive={isLassoActive}
+      >
+        <LassoIcon />
       </ControlButton>
     </ButtonGroup>
   </ControlsContainer>

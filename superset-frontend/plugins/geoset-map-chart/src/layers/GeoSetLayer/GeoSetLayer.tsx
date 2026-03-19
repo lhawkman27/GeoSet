@@ -1227,6 +1227,10 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onRulerToggle={handleRulerToggle}
         isRulerActive={measureState.isActive}
         position="top-right"
+        onLassoToggle={function (): void {
+          throw new Error('Function not implemented.');
+        }}
+        isLassoActive={false}
       />
       <MeasureOverlay
         measureState={measureState}

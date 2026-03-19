@@ -1054,6 +1054,8 @@ const DeckMulti = (props: DeckMultiProps) => {
         onResetView={handleResetView}
         onRulerToggle={handleRulerToggle}
         isRulerActive={measureState.isActive}
+        onLassoToggle={() => {}}
+        isLassoActive={false}
         position="top-right"
       />
       {clickedFeature && (
