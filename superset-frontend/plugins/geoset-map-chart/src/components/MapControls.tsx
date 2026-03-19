@@ -16,8 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { styled } from '@superset-ui/core';
+
+export type LassoLayer = { id: string; name: string };
 
 export type MapControlsProps = {
   onZoomIn: () => void;
@@ -27,6 +29,9 @@ export type MapControlsProps = {
   isRulerActive: boolean;
   onLassoToggle: () => void;
   isLassoActive: boolean;
+  lassoLayers?: LassoLayer[];
+  activeLassoLayerId?: string;
+  onLassoLayerSelect?: (layerId: string) => void;
   position?: 'top-left' | 'top-right';
 };
 
@@ -85,6 +90,68 @@ const ControlButton = styled.button<{ $isActive?: boolean }>(
     background: ${$isActive ? theme.colorPrimaryBgHover : theme.colorBgTextActive};
   }
 `,
+);
+
+const DropdownPanel = styled.div(
+  ({ theme }) => `
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: ${theme.colorBgElevated};
+  border: 1px solid ${theme.colorBorderSecondary};
+  border-radius: 6px;
+  box-shadow: 0 4px 12px ${theme.colorText}1F;
+  overflow: hidden;
+`,
+);
+
+const DropdownHeader = styled.div(
+  ({ theme }) => `
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: ${theme.colorTextSecondary};
+  border-bottom: 1px solid ${theme.colorBorderSecondary};
+`,
+);
+
+const DropdownItem = styled.button<{ $isActive?: boolean }>(
+  ({ theme, $isActive }) => `
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: ${$isActive ? theme.colorPrimaryBg : 'transparent'};
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: ${$isActive ? theme.colorPrimary : theme.colorText};
+  text-align: left;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${$isActive ? theme.colorPrimaryBgHover : theme.colorBgTextHover};
+  }
+`,
+);
+
+const CheckIcon = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
 );
 
 const HomeIcon = () => (
@@ -148,37 +215,95 @@ const MapControls = ({
   isRulerActive,
   onLassoToggle,
   isLassoActive,
+  lassoLayers = [],
+  activeLassoLayerId,
+  onLassoLayerSelect,
   position = 'top-left',
-}: MapControlsProps) => (
-  <ControlsContainer $position={position}>
-    <ButtonGroup>
-      <ControlButton onClick={onResetView} title="Reset view">
-        <HomeIcon />
-      </ControlButton>
-      <ControlButton onClick={onZoomOut} title="Zoom out">
-        −
-      </ControlButton>
-      <ControlButton onClick={onZoomIn} title="Zoom in">
-        +
-      </ControlButton>
-      <ControlButton
-        onClick={onRulerToggle}
-        title={isRulerActive ? 'Exit measure mode (Esc)' : 'Measure distance'}
-        $isActive={isRulerActive}
-      >
-        <RulerIcon />
-      </ControlButton>
-      <ControlButton
-        onClick={onLassoToggle}
-        title={
-          isLassoActive ? 'Exit lasso mode (Esc)' : 'Lasso select features'
-        }
-        $isActive={isLassoActive}
-      >
-        <LassoIcon />
-      </ControlButton>
-    </ButtonGroup>
-  </ControlsContainer>
-);
+}: MapControlsProps) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!isDropdownOpen) return undefined;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isDropdownOpen]);
+
+  const handleLassoButtonClick = () => {
+    if (isLassoActive) {
+      // Deactivate lasso
+      onLassoToggle();
+      setIsDropdownOpen(false);
+    } else {
+      // Open layer picker
+      setIsDropdownOpen(prev => !prev);
+    }
+  };
+
+  const handleLayerSelect = (layerId: string) => {
+    setIsDropdownOpen(false);
+    onLassoLayerSelect?.(layerId);
+  };
+
+  return (
+    <ControlsContainer $position={position} ref={containerRef}>
+      <ButtonGroup>
+        <ControlButton onClick={onResetView} title="Reset view">
+          <HomeIcon />
+        </ControlButton>
+        <ControlButton onClick={onZoomOut} title="Zoom out">
+          −
+        </ControlButton>
+        <ControlButton onClick={onZoomIn} title="Zoom in">
+          +
+        </ControlButton>
+        <ControlButton
+          onClick={onRulerToggle}
+          title={isRulerActive ? 'Exit measure mode (Esc)' : 'Measure distance'}
+          $isActive={isRulerActive}
+        >
+          <RulerIcon />
+        </ControlButton>
+        <ControlButton
+          onClick={handleLassoButtonClick}
+          title={
+            isLassoActive ? 'Exit lasso mode (Esc)' : 'Lasso select features'
+          }
+          $isActive={isLassoActive || isDropdownOpen}
+        >
+          <LassoIcon />
+        </ControlButton>
+      </ButtonGroup>
+
+      {isDropdownOpen && lassoLayers.length > 0 && (
+        <DropdownPanel>
+          <DropdownHeader>Select layer</DropdownHeader>
+          {lassoLayers.map(layer => (
+            <DropdownItem
+              key={layer.id}
+              $isActive={layer.id === activeLassoLayerId}
+              onClick={() => handleLayerSelect(layer.id)}
+            >
+              {layer.id === activeLassoLayerId && <CheckIcon />}
+              {layer.id !== activeLassoLayerId && (
+                <span style={{ width: 12 }} />
+              )}
+              {layer.name}
+            </DropdownItem>
+          ))}
+        </DropdownPanel>
+      )}
+    </ControlsContainer>
+  );
+};
 
 export default memo(MapControls);

@@ -879,6 +879,18 @@ const DeckMulti = (props: DeckMultiProps) => {
     [sortedLayers, layerVisibility],
   );
 
+  // Layer list for lasso layer picker dropdown
+  const lassoLayers = useMemo(
+    () =>
+      sortedLayers.map(entry => ({
+        id: String(entry.sliceId),
+        name:
+          (entry.legendEntry.sliceName as string | undefined) ||
+          entry.legendEntry.legendName,
+      })),
+    [sortedLayers],
+  );
+
   // Build legendsBySlice for MultiLegend component, with category enabled state applied.
   // Merges loaded entries with stub entries so the legend shows all layers immediately.
   const legendsBySlice: Record<string, LegendEntry> = useMemo(() => {
@@ -997,6 +1009,22 @@ const DeckMulti = (props: DeckMultiProps) => {
 
   // Keep ref in sync with measure state for use in callbacks
   measureActiveRef.current = measureState.isActive;
+
+  // Lasso selection state
+  const [lassoIsActive, setLassoIsActive] = useState(false);
+  const [activeLassoLayerId, setActiveLassoLayerId] = useState<
+    string | undefined
+  >();
+
+  const handleLassoToggle = useCallback(() => {
+    setLassoIsActive(false);
+    setActiveLassoLayerId(undefined);
+  }, []);
+
+  const handleLassoLayerSelect = useCallback((layerId: string) => {
+    setActiveLassoLayerId(layerId);
+    setLassoIsActive(true);
+  }, []);
 
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {
@@ -1138,8 +1166,11 @@ const DeckMulti = (props: DeckMultiProps) => {
         onResetView={handleResetView}
         onRulerToggle={handleRulerToggle}
         isRulerActive={measureState.isActive}
-        onLassoToggle={() => {}}
-        isLassoActive={false}
+        onLassoToggle={handleLassoToggle}
+        isLassoActive={lassoIsActive}
+        lassoLayers={lassoLayers}
+        activeLassoLayerId={activeLassoLayerId}
+        onLassoLayerSelect={handleLassoLayerSelect}
         position="top-right"
       />
       {clickedFeature && (

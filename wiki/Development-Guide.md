@@ -118,7 +118,7 @@ Each phase checks a staleness flag before proceeding. When the user changes a fi
 | `utils/fitViewport.ts` | Autozoom calculation to fit features in the viewport |
 | `utils/liveViewportStore.ts` | Module-level store for live viewport state (bypasses Redux to avoid "Altered" chart state) |
 | `components/MultiLegend.tsx` | Drag-and-drop multi-layer legend with toggle/isolate |
-| `components/MapControls.tsx` | Measurement tool and zoom controls |
+| `components/MapControls.tsx` | Zoom controls, measurement tool, and lasso select tool |
 
 ## Branch Strategy
 
