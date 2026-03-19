@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable no-console */
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -26,6 +27,7 @@ import {
   ScatterplotLayer,
 } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
+import { MVTLayer } from '@deck.gl/geo-layers';
 // ignoring the eslint error below since typescript prefers 'geojson' to '@types/geojson'
 // eslint-disable-next-line import/no-unresolved
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
@@ -310,6 +312,30 @@ export function getLayer(
       categories,
       dimension,
       baseLayerProps,
+    });
+  }
+
+  // --- MVT fast path — tiles come from an external URL, no Superset features needed ---
+  if (requestedLayerType === 'MVT') {
+    let mvtConfig: any = {};
+    try {
+      mvtConfig =
+        typeof fd.geojsonConfig === 'string'
+          ? JSON.parse(fd.geojsonConfig)
+          : fd.geojsonConfig || {};
+    } catch {
+      // ignore parse errors — tileUrl will be undefined and we return null below
+    }
+    const tileUrl = mvtConfig?.mvtTileUrl;
+    if (!tileUrl) return null;
+
+    return new MVTLayer({
+      id: `mvt-layer-${fd.slice_id}`,
+      data: tileUrl,
+      getFillColor: fillColorArray as [number, number, number, number],
+      getLineColor: strokeColorArray as [number, number, number, number],
+      lineWidthMinPixels: lineWidth ?? 1,
+      ...baseLayerProps,
     });
   }
 

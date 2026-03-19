@@ -45,6 +45,7 @@ const geoJsonLayers: [string, string][] = [
   ['Line', 'Line'],
   ['Polygon', 'Polygon'],
   ['TextOverlay', 'Text Overlay'],
+  ['MVT', 'MVT (Vector Tiles)'],
 ];
 
 const defaultGeojsonConfig = JSON.stringify(
@@ -133,7 +134,7 @@ const config: ControlPanelConfig = {
               choices: geoJsonLayers,
               rerender: ['textLabelColumn'],
               description: t(
-                'Select the Geospatial data layer type to render: Polygon, Line, Point, Text Overlay, or GeoJSON.',
+                'Select the Geospatial data layer type to render: Polygon, Line, Point, Text Overlay, GeoJSON, or MVT.',
               ),
             },
           },

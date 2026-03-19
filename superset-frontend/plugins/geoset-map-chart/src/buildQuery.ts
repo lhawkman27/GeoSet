@@ -12,6 +12,11 @@ export default function buildQuery(formData: QueryFormData) {
     return buildQueryContext(formData, () => []); // return no queries
   }
 
+  // MVT layers fetch tiles directly from a tile server URL — no Superset query needed.
+  if (formData.geoJsonLayer === 'MVT') {
+    return buildQueryContext(formData, () => []);
+  }
+
   // Parse geojsonConfig JSON blob safely
   let geojsonConfig: any = {};
   try {
