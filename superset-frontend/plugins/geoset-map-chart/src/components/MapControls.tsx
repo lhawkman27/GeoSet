@@ -190,7 +190,7 @@ const RulerIcon = () => (
 );
 
 const LassoIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     {/* Lasso rope loop — open at bottom-right leading into cursor */}
     <path
       d="M 15 13 C 22 10 23 4 17 1 C 12 0 5 1 2 6 C 0 11 4 15 9 15"
