@@ -44,6 +44,11 @@ import {
 } from './utils/fitViewport';
 import { LayerState } from './types';
 import { MeasureState, useMeasureLayers } from './components/MeasureOverlay';
+import {
+  LASSO_CURSOR,
+  useLassoLayer,
+  LassoDrawMode,
+} from './components/LassoOverlay';
 import { Coordinate } from './utils/measureDistance';
 
 const TICK = 250; // milliseconds
@@ -65,6 +70,9 @@ export type DeckGLContainerProps = {
   onMeasureDragStart?: (coordinate: Coordinate) => void;
   onMeasureDrag?: (coordinate: Coordinate) => void;
   onMeasureDragEnd?: (coordinate: Coordinate) => void;
+  lassoIsActive?: boolean;
+  lassoDrawMode?: LassoDrawMode;
+  onLassoComplete?: (polygon: Coordinate[]) => void;
   onEmptyClick?: () => void;
 };
 
@@ -369,16 +377,26 @@ export const DeckGLContainer = memo(
       distance,
     } = useMeasureLayers(measureState, project);
 
+    // Get lasso editable layer (library-based drawing)
+    const lassoIsActive = props.lassoIsActive ?? false;
+    const lassoDrawMode = props.lassoDrawMode ?? 'freehand';
+    const handleLassoComplete = props.onLassoComplete ?? (() => {});
+    const { layers: lassoLayers } = useLassoLayer(
+      lassoIsActive,
+      handleLassoComplete,
+      lassoDrawMode,
+    );
+
     const allLayers = useMemo(() => {
       if (!layerStates || layerStates.length === 0) {
-        return measureLayers as Layer[];
+        return [...measureLayers, ...lassoLayers] as Layer[];
       }
       const layers = layerStates
         .map(ls => ls?.layer)
         .filter(Boolean) as Layer[];
 
-      return [...layers, ...measureLayers] as Layer[];
-    }, [layerStates, measureLayers]);
+      return [...layers, ...measureLayers, ...lassoLayers] as Layer[];
+    }, [layerStates, measureLayers, lassoLayers]);
 
     useEffect(() => {
       if (!props.layerStates) return;
@@ -551,6 +569,8 @@ export const DeckGLContainer = memo(
       (info: any) => {
         // Don't handle click if a drag was in progress (threshold was exceeded)
         if (measureDragRef.current) return;
+        // Suppress normal clicks during lasso mode
+        if (lassoIsActive) return;
         if (measureState.isActive && onMeasureClick && info.coordinate) {
           onMeasureClick(info.coordinate as Coordinate);
         }
@@ -559,13 +579,18 @@ export const DeckGLContainer = memo(
           onEmptyClick();
         }
       },
-      [measureState.isActive, onMeasureClick, onEmptyClick],
+      [measureState.isActive, lassoIsActive, onMeasureClick, onEmptyClick],
     );
 
-    // Cursor style for measure mode - use custom ruler cursor
+    // Cursor style for measure/lasso modes
     const getCursor = useCallback(
-      () => (measureState.isActive ? RULER_CURSOR : 'grab'),
-      [measureState.isActive],
+      () =>
+        lassoIsActive
+          ? LASSO_CURSOR
+          : measureState.isActive
+            ? RULER_CURSOR
+            : 'grab',
+      [measureState.isActive, lassoIsActive],
     );
 
     // Handle mouse down for drag-to-measure
@@ -573,7 +598,6 @@ export const DeckGLContainer = memo(
       (e: React.MouseEvent) => {
         if (!measureState.isActive) return;
 
-        // Store initial position - don't start drag yet
         const rect = e.currentTarget.getBoundingClientRect();
         mouseDownPosRef.current = {
           x: e.clientX - rect.left,
@@ -596,14 +620,10 @@ export const DeckGLContainer = memo(
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        // Check if we've exceeded drag threshold
         if (!measureDragRef.current) {
           const dx = x - mouseDownPosRef.current.x;
           const dy = y - mouseDownPosRef.current.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance >= DRAG_THRESHOLD) {
-            // Start drag from the initial mouse down position
+          if (Math.sqrt(dx * dx + dy * dy) >= DRAG_THRESHOLD) {
             measureDragRef.current = true;
             const startLngLat = map.unproject([
               mouseDownPosRef.current.x,
@@ -611,11 +631,10 @@ export const DeckGLContainer = memo(
             ]);
             props.onMeasureDragStart?.([startLngLat.lng, startLngLat.lat]);
           } else {
-            return; // Haven't moved enough yet
+            return;
           }
         }
 
-        // Continue drag
         const lngLat = map.unproject([x, y]);
         props.onMeasureDrag?.([lngLat.lng, lngLat.lat]);
       },
@@ -627,7 +646,6 @@ export const DeckGLContainer = memo(
       (e: React.MouseEvent) => {
         if (!measureState.isActive) return;
 
-        // Only finalize drag if we actually started dragging
         if (measureDragRef.current) {
           const map = mapRef.current?.getMap();
           if (map) {
@@ -639,17 +657,18 @@ export const DeckGLContainer = memo(
           }
         }
 
-        // Reset refs
         measureDragRef.current = false;
         mouseDownPosRef.current = null;
       },
       [measureState.isActive, props.onMeasureDragEnd],
     );
 
-    // Disable map panning when in measure mode
-    const controllerOptions = measureState.isActive
-      ? { dragPan: false, dragRotate: false }
-      : true;
+    // Disable map panning when in measure or lasso mode
+    // Lasso needs dragPan off so EditableGeoJsonLayer receives drag events
+    const controllerOptions =
+      measureState.isActive || lassoIsActive
+        ? { dragPan: false, dragRotate: false }
+        : true;
 
     // Calculate scale info using map projection (matches mapbox-gl ScaleControl exactly)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps trigger recalc when map state changes

@@ -947,6 +947,25 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     isDragging: false,
   });
 
+  // Lasso state (single-layer: no dropdown, just toggle)
+  const [lassoIsActive, setLassoIsActive] = useState(false);
+  const [lassoDrawMode, setLassoDrawMode] = useState<'freehand' | 'polygon'>(
+    'freehand',
+  );
+
+  const handleLassoToggle = useCallback(() => {
+    setLassoIsActive(false);
+  }, []);
+
+  const handleLassoActivate = useCallback(() => {
+    setLassoIsActive(true);
+  }, []);
+
+  const handleLassoComplete = useCallback((polygon: [number, number][]) => {
+    // TODO: point-in-polygon query + results bar
+    console.log('Lasso complete (single layer):', polygon);
+  }, []);
+
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(
     (info: any) => {
@@ -1204,6 +1223,9 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onMeasureDragStart={handleMeasureDragStart}
         onMeasureDrag={handleMeasureDrag}
         onMeasureDragEnd={handleMeasureDragEnd}
+        lassoIsActive={lassoIsActive}
+        lassoDrawMode={lassoDrawMode}
+        onLassoComplete={handleLassoComplete}
         onEmptyClick={handleClosePopup}
       />
       <Legend
@@ -1226,11 +1248,12 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onResetView={handleResetView}
         onRulerToggle={handleRulerToggle}
         isRulerActive={measureState.isActive}
+        onLassoToggle={handleLassoToggle}
+        onLassoActivate={handleLassoActivate}
+        isLassoActive={lassoIsActive}
+        lassoDrawMode={lassoDrawMode}
+        onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
-        onLassoToggle={function (): void {
-          throw new Error('Function not implemented.');
-        }}
-        isLassoActive={false}
       />
       <MeasureOverlay
         measureState={measureState}

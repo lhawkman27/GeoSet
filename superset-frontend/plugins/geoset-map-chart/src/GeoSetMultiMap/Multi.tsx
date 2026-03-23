@@ -48,6 +48,7 @@ import MultiLegend from '../components/MultiLegend';
 import type { CategoryEntry, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
+import type { Coordinate } from '../utils/measureDistance';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
 import { fetchMapboxApiKey, getCachedMapboxApiKey } from '../utils/mapboxApi';
@@ -1012,18 +1013,44 @@ const DeckMulti = (props: DeckMultiProps) => {
 
   // Lasso selection state
   const [lassoIsActive, setLassoIsActive] = useState(false);
-  const [activeLassoLayerId, setActiveLassoLayerId] = useState<
-    string | undefined
-  >();
+  const [lassoDrawMode, setLassoDrawMode] = useState<'freehand' | 'polygon'>(
+    'freehand',
+  );
+  const [selectedLassoLayerIds, setSelectedLassoLayerIds] = useState<string[]>(
+    [],
+  );
+  // Stores the completed lasso polygon for point-in-polygon queries (next phase)
+  const [_lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
+
+  // Default pre-select the first layer when layers load
+  useEffect(() => {
+    if (lassoLayers.length > 0 && selectedLassoLayerIds.length === 0) {
+      setSelectedLassoLayerIds([lassoLayers[0].id]);
+    }
+  }, [lassoLayers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLassoToggle = useCallback(() => {
     setLassoIsActive(false);
-    setActiveLassoLayerId(undefined);
+    setSelectedLassoLayerIds([]);
+    setLassoPolygon(null);
   }, []);
 
-  const handleLassoLayerSelect = useCallback((layerId: string) => {
-    setActiveLassoLayerId(layerId);
+  const handleLassoLayerToggle = useCallback((layerId: string) => {
+    setSelectedLassoLayerIds(prev =>
+      prev.includes(layerId)
+        ? prev.filter(id => id !== layerId)
+        : [...prev, layerId],
+    );
+  }, []);
+
+  const handleLassoActivate = useCallback(() => {
     setLassoIsActive(true);
+    setLassoPolygon(null);
+  }, []);
+
+  // Called by EditableGeoJsonLayer when freehand polygon drawing completes
+  const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
+    setLassoPolygon(polygon);
   }, []);
 
   const handleRulerToggle = useCallback(() => {
@@ -1036,6 +1063,9 @@ const DeckMulti = (props: DeckMultiProps) => {
           isDragging: false,
         };
       }
+      // Deactivate lasso when activating ruler
+      setLassoIsActive(false);
+      setLassoPolygon(null);
       return {
         startPoint: null,
         endPoint: null,
@@ -1085,21 +1115,27 @@ const DeckMulti = (props: DeckMultiProps) => {
     });
   }, []);
 
-  // Handle escape key to exit ruler mode
+  // Handle escape key to exit ruler or lasso mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && measureState.isActive) {
-        setMeasureState({
-          startPoint: null,
-          endPoint: null,
-          isActive: false,
-          isDragging: false,
-        });
+      if (e.key === 'Escape') {
+        if (measureState.isActive) {
+          setMeasureState({
+            startPoint: null,
+            endPoint: null,
+            isActive: false,
+            isDragging: false,
+          });
+        }
+        if (lassoIsActive) {
+          setLassoIsActive(false);
+          setLassoPolygon(null);
+        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [measureState.isActive]);
+  }, [measureState.isActive, lassoIsActive]);
 
   // Gate map canvas rendering to prevent a viewport jump when autozoom layers
   // load. Phase 1 loads autozoom layers first; the canvas stays hidden until
@@ -1152,6 +1188,9 @@ const DeckMulti = (props: DeckMultiProps) => {
         onMeasureDragStart={handleMeasureDragStart}
         onMeasureDrag={handleMeasureDrag}
         onMeasureDragEnd={handleMeasureDragEnd}
+        lassoIsActive={lassoIsActive}
+        lassoDrawMode={lassoDrawMode}
+        onLassoComplete={handleLassoComplete}
         onEmptyClick={handleClosePopup}
       />
       <MultiLegend
@@ -1167,10 +1206,13 @@ const DeckMulti = (props: DeckMultiProps) => {
         onRulerToggle={handleRulerToggle}
         isRulerActive={measureState.isActive}
         onLassoToggle={handleLassoToggle}
+        onLassoActivate={handleLassoActivate}
         isLassoActive={lassoIsActive}
         lassoLayers={lassoLayers}
-        activeLassoLayerId={activeLassoLayerId}
-        onLassoLayerSelect={handleLassoLayerSelect}
+        activeLassoLayerIds={selectedLassoLayerIds}
+        onLassoLayerToggle={handleLassoLayerToggle}
+        lassoDrawMode={lassoDrawMode}
+        onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
       {clickedFeature && (
