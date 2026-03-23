@@ -27,6 +27,11 @@ import type { Coordinate } from '../utils/measureDistance';
 
 export type LassoDrawMode = 'freehand' | 'polygon';
 
+type EditModeConstructor =
+  | typeof DrawPolygonByDraggingMode
+  | typeof DrawPolygonMode
+  | typeof ViewMode;
+
 const EMPTY_FEATURE_COLLECTION = {
   type: 'FeatureCollection' as const,
   features: [] as any[],
@@ -50,7 +55,9 @@ export function useLassoLayer(
   drawMode: LassoDrawMode = 'freehand',
 ): { layers: any[] } {
   const [data, setData] = useState(EMPTY_FEATURE_COLLECTION);
-  const [mode, setMode] = useState<any>(() => DRAW_MODES[drawMode]);
+  const [mode, setMode] = useState<EditModeConstructor>(
+    () => DRAW_MODES[drawMode],
+  );
 
   // Reset when lasso is activated or deactivated
   useEffect(() => {

@@ -72,6 +72,7 @@ GeoSet/
 │               │   └── GeoSetLayer/   # Single-layer chart (deck_geoset_map_layer)
 │               ├── GeoSetMultiMap/    # Multi-layer chart (deck_geoset_multi_map)
 │               ├── components/        # Legend, Tooltip, MapControls, etc.
+│               ├── hooks/             # Shared React hooks (lasso selection, etc.)
 │               ├── utils/             # Color utilities, geometry helpers, viewport
 │               ├── buildQuery.ts      # PostGIS query builder
 │               └── transformProps.ts  # Data transformation pipeline

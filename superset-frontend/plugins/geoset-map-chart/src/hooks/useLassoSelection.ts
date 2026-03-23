@@ -1,0 +1,126 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { LassoDrawMode } from '../components/LassoOverlay';
+import type { Coordinate } from '../utils/measureDistance';
+import type { LassoLayer } from '../components/MapControls';
+
+export type UseLassoSelectionOptions = {
+  /** Available layers for multi-layer selection. Omit or pass empty for single-layer. */
+  availableLayers?: LassoLayer[];
+  /** Called when lasso polygon drawing completes. */
+  onPolygonComplete?: (polygon: Coordinate[]) => void;
+  /** Called when lasso is activated (useful for deactivating other modes like ruler). */
+  onActivate?: () => void;
+};
+
+export type UseLassoSelectionResult = {
+  lassoIsActive: boolean;
+  lassoDrawMode: LassoDrawMode;
+  setLassoDrawMode: (mode: LassoDrawMode) => void;
+  selectedLassoLayerIds: string[];
+  handleLassoToggle: () => void;
+  handleLassoActivate: () => void;
+  handleLassoComplete: (polygon: Coordinate[]) => void;
+  handleLassoLayerToggle: (layerId: string) => void;
+  deactivateLasso: () => void;
+};
+
+export function useLassoSelection(
+  options: UseLassoSelectionOptions = {},
+): UseLassoSelectionResult {
+  const { availableLayers = [] } = options;
+
+  // Use refs for callbacks to avoid stale closures without re-triggering effects
+  const onPolygonCompleteRef = useRef(options.onPolygonComplete);
+  onPolygonCompleteRef.current = options.onPolygonComplete;
+  const onActivateRef = useRef(options.onActivate);
+  onActivateRef.current = options.onActivate;
+
+  const [lassoIsActive, setLassoIsActive] = useState(false);
+  const [lassoDrawMode, setLassoDrawMode] = useState<LassoDrawMode>('freehand');
+  const [selectedLassoLayerIds, setSelectedLassoLayerIds] = useState<string[]>(
+    [],
+  );
+
+  // Auto-select the first layer when available layers load and none are selected.
+  // Serialize IDs as the dependency so the effect only fires when actual layers change.
+  const availableLayerIds = availableLayers.map(l => l.id).join(',');
+  useEffect(() => {
+    if (availableLayers.length > 0 && selectedLassoLayerIds.length === 0) {
+      setSelectedLassoLayerIds([availableLayers[0].id]);
+    }
+  }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deactivate lasso without clearing layer selections (soft deactivation for mode switching)
+  const deactivateLasso = useCallback(() => {
+    setLassoIsActive(false);
+  }, []);
+
+  // Toggle lasso off — full reset including layer selections
+  const handleLassoToggle = useCallback(() => {
+    setLassoIsActive(false);
+    setSelectedLassoLayerIds([]);
+  }, []);
+
+  // Activate lasso drawing and notify parent (e.g. to deactivate ruler)
+  const handleLassoActivate = useCallback(() => {
+    onActivateRef.current?.();
+    setLassoIsActive(true);
+  }, []);
+
+  // Forward completed polygon to consumer
+  const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
+    onPolygonCompleteRef.current?.(polygon);
+  }, []);
+
+  // Toggle a layer in/out of the multi-layer selection
+  const handleLassoLayerToggle = useCallback((layerId: string) => {
+    setSelectedLassoLayerIds(prev =>
+      prev.includes(layerId)
+        ? prev.filter(id => id !== layerId)
+        : [...prev, layerId],
+    );
+  }, []);
+
+  // Escape key exits lasso mode
+  useEffect(() => {
+    if (!lassoIsActive) return undefined;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLassoIsActive(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [lassoIsActive]);
+
+  return {
+    lassoIsActive,
+    lassoDrawMode,
+    setLassoDrawMode,
+    selectedLassoLayerIds,
+    handleLassoToggle,
+    handleLassoActivate,
+    handleLassoComplete,
+    handleLassoLayerToggle,
+    deactivateLasso,
+  };
+}

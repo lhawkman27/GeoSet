@@ -49,6 +49,7 @@ import type { CategoryEntry, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import type { Coordinate } from '../utils/measureDistance';
+import { useLassoSelection } from '../hooks/useLassoSelection';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
 import { fetchMapboxApiKey, getCachedMapboxApiKey } from '../utils/mapboxApi';
@@ -1011,47 +1012,27 @@ const DeckMulti = (props: DeckMultiProps) => {
   // Keep ref in sync with measure state for use in callbacks
   measureActiveRef.current = measureState.isActive;
 
-  // Lasso selection state
-  const [lassoIsActive, setLassoIsActive] = useState(false);
-  const [lassoDrawMode, setLassoDrawMode] = useState<'freehand' | 'polygon'>(
-    'freehand',
-  );
-  const [selectedLassoLayerIds, setSelectedLassoLayerIds] = useState<string[]>(
-    [],
-  );
-  // Stores the completed lasso polygon for point-in-polygon queries (next phase)
-  const [_lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
-
-  // Default pre-select the first layer when layers load
-  useEffect(() => {
-    if (lassoLayers.length > 0 && selectedLassoLayerIds.length === 0) {
-      setSelectedLassoLayerIds([lassoLayers[0].id]);
-    }
-  }, [lassoLayers]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleLassoToggle = useCallback(() => {
-    setLassoIsActive(false);
-    setSelectedLassoLayerIds([]);
-    setLassoPolygon(null);
-  }, []);
-
-  const handleLassoLayerToggle = useCallback((layerId: string) => {
-    setSelectedLassoLayerIds(prev =>
-      prev.includes(layerId)
-        ? prev.filter(id => id !== layerId)
-        : [...prev, layerId],
-    );
-  }, []);
-
-  const handleLassoActivate = useCallback(() => {
-    setLassoIsActive(true);
-    setLassoPolygon(null);
-  }, []);
-
-  // Called by EditableGeoJsonLayer when freehand polygon drawing completes
-  const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
-    setLassoPolygon(polygon);
-  }, []);
+  const {
+    lassoIsActive,
+    lassoDrawMode,
+    setLassoDrawMode,
+    selectedLassoLayerIds,
+    handleLassoToggle,
+    handleLassoActivate,
+    handleLassoComplete,
+    handleLassoLayerToggle,
+    deactivateLasso,
+  } = useLassoSelection({
+    availableLayers: lassoLayers,
+    onActivate: () => {
+      setMeasureState({
+        startPoint: null,
+        endPoint: null,
+        isActive: false,
+        isDragging: false,
+      });
+    },
+  });
 
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {
@@ -1063,9 +1044,7 @@ const DeckMulti = (props: DeckMultiProps) => {
           isDragging: false,
         };
       }
-      // Deactivate lasso when activating ruler
-      setLassoIsActive(false);
-      setLassoPolygon(null);
+      deactivateLasso();
       return {
         startPoint: null,
         endPoint: null,
@@ -1073,7 +1052,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         isDragging: false,
       };
     });
-  }, []);
+  }, [deactivateLasso]);
 
   const handleMeasureClick = useCallback((coordinate: [number, number]) => {
     setMeasureState(prev => {
@@ -1115,27 +1094,21 @@ const DeckMulti = (props: DeckMultiProps) => {
     });
   }, []);
 
-  // Handle escape key to exit ruler or lasso mode
+  // Handle escape key to exit ruler mode (lasso escape is handled by useLassoSelection)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (measureState.isActive) {
-          setMeasureState({
-            startPoint: null,
-            endPoint: null,
-            isActive: false,
-            isDragging: false,
-          });
-        }
-        if (lassoIsActive) {
-          setLassoIsActive(false);
-          setLassoPolygon(null);
-        }
+      if (e.key === 'Escape' && measureState.isActive) {
+        setMeasureState({
+          startPoint: null,
+          endPoint: null,
+          isActive: false,
+          isDragging: false,
+        });
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [measureState.isActive, lassoIsActive]);
+  }, [measureState.isActive]);
 
   // Gate map canvas rendering to prevent a viewport jump when autozoom layers
   // load. Phase 1 loads autozoom layers first; the canvas stays hidden until

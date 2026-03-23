@@ -18,6 +18,7 @@
  * under the License.
  */
 import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { useLassoSelection } from '../../hooks/useLassoSelection';
 import {
   GeoJsonLayer,
   IconLayer,
@@ -947,24 +948,28 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     isDragging: false,
   });
 
-  // Lasso state (single-layer: no dropdown, just toggle)
-  const [lassoIsActive, setLassoIsActive] = useState(false);
-  const [lassoDrawMode, setLassoDrawMode] = useState<'freehand' | 'polygon'>(
-    'freehand',
-  );
-
-  const handleLassoToggle = useCallback(() => {
-    setLassoIsActive(false);
-  }, []);
-
-  const handleLassoActivate = useCallback(() => {
-    setLassoIsActive(true);
-  }, []);
-
-  const handleLassoComplete = useCallback((polygon: [number, number][]) => {
-    // TODO: point-in-polygon query + results bar
-    console.log('Lasso complete (single layer):', polygon);
-  }, []);
+  const {
+    lassoIsActive,
+    lassoDrawMode,
+    setLassoDrawMode,
+    handleLassoToggle,
+    handleLassoActivate,
+    handleLassoComplete,
+    deactivateLasso,
+  } = useLassoSelection({
+    onPolygonComplete: polygon => {
+      // TODO: point-in-polygon query + results bar
+      console.log('Lasso complete (single layer):', polygon);
+    },
+    onActivate: () => {
+      setMeasureState({
+        startPoint: null,
+        endPoint: null,
+        isActive: false,
+        isDragging: false,
+      });
+    },
+  });
 
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(
@@ -980,7 +985,6 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {
       if (prev.isActive) {
-        // Exiting ruler mode - clear points
         return {
           startPoint: null,
           endPoint: null,
@@ -988,7 +992,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           isDragging: false,
         };
       }
-      // Entering ruler mode
+      deactivateLasso();
       return {
         startPoint: null,
         endPoint: null,
@@ -996,7 +1000,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         isDragging: false,
       };
     });
-  }, []);
+  }, [deactivateLasso]);
 
   const handleMeasureClick = useCallback((coordinate: Coordinate) => {
     setMeasureState(prev => {
