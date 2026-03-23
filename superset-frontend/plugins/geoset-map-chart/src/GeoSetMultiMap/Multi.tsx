@@ -45,11 +45,12 @@ import { LayerState } from '../types';
 import buildGeoSetMapLayerQuery from '../buildQuery';
 import transformGeoSetMapLayerProps from '../transformProps';
 import MultiLegend from '../components/MultiLegend';
-import type { CategoryEntry, LegendEntry } from '../types';
+import type { CategoryEntry, GeoJsonFeature, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
-import type { Coordinate } from '../utils/measureDistance';
 import { useLassoSelection } from '../hooks/useLassoSelection';
+import { filterMultiLayerFeaturesInLasso } from '../utils/lassoSelection';
+import LassoResultsBar from '../components/LassoResultsBar';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
 import { fetchMapboxApiKey, getCachedMapboxApiKey } from '../utils/mapboxApi';
@@ -1017,6 +1018,9 @@ const DeckMulti = (props: DeckMultiProps) => {
     lassoDrawMode,
     setLassoDrawMode,
     selectedLassoLayerIds,
+    selectedFeatures,
+    setSelectedFeatures,
+    clearSelection,
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,
@@ -1024,6 +1028,40 @@ const DeckMulti = (props: DeckMultiProps) => {
     deactivateLasso,
   } = useLassoSelection({
     availableLayers: lassoLayers,
+    onPolygonComplete: polygon => {
+      const layerFeatureMap: Record<string, GeoJsonFeature[]> = {};
+      sortedLayers.forEach(entry => {
+        const layerId = String(entry.sliceId);
+        if (!selectedLassoLayerIds.includes(layerId)) return;
+
+        const allFeatures =
+          (entry.transformedProps.payload?.data
+            ?.features as GeoJsonFeature[]) || [];
+
+        // Filter out features whose category is hidden in the legend
+        const sliceVisibility = categoryVisibility[layerId];
+        const dimension = entry.transformedProps.visualConfig?.dimension as
+          | string
+          | undefined;
+        const visibleFeatures =
+          sliceVisibility && dimension
+            ? allFeatures.filter(f => {
+                const raw =
+                  (f as any).categoryName ?? f.properties?.[dimension];
+                if (raw == null) return true;
+                const key = String(raw);
+                return sliceVisibility[key] !== false;
+              })
+            : allFeatures;
+
+        const name =
+          (entry.legendEntry.sliceName as string | undefined) ||
+          entry.legendEntry.legendName;
+        layerFeatureMap[name] = visibleFeatures;
+      });
+      const result = filterMultiLayerFeaturesInLasso(layerFeatureMap, polygon);
+      setSelectedFeatures(result.features);
+    },
     onActivate: () => {
       setMeasureState({
         startPoint: null,
@@ -1188,6 +1226,13 @@ const DeckMulti = (props: DeckMultiProps) => {
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
+      {selectedFeatures.length > 0 && (
+        <LassoResultsBar
+          count={selectedFeatures.length}
+          features={selectedFeatures}
+          onClear={clearSelection}
+        />
+      )}
       {clickedFeature && (
         <ClickPopupBox
           feature={clickedFeature}

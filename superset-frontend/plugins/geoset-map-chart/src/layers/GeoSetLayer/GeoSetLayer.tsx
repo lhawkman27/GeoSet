@@ -57,6 +57,8 @@ import { calculateAutozoomViewport, Viewport } from '../../utils/fitViewport';
 import { TooltipProps } from '../../components/Tooltip';
 import Legend, { SizeLegend } from '../../components/Legend';
 import MapControls from '../../components/MapControls';
+import LassoResultsBar from '../../components/LassoResultsBar';
+import { filterFeaturesInLasso } from '../../utils/lassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -952,14 +954,41 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     lassoIsActive,
     lassoDrawMode,
     setLassoDrawMode,
+    selectedFeatures,
+    setSelectedFeatures,
+    clearSelection,
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,
     deactivateLasso,
   } = useLassoSelection({
     onPolygonComplete: polygon => {
-      // TODO: point-in-polygon query + results bar
-      console.log('Lasso complete (single layer):', polygon);
+      const allFeatures =
+        (payload?.data?.features as GeoJsonFeature[]) || [];
+      const dimension = propVisualConfig?.dimension as string | undefined;
+
+      // Only include features whose category is visible in the legend
+      const disabledKeys = new Set<string>(
+        Object.entries(categories)
+          .filter(([, cat]) => cat.enabled === false)
+          .map(([key]) => key),
+      );
+      const visibleFeatures =
+        disabledKeys.size > 0 && dimension
+          ? allFeatures.filter(f => {
+              const raw =
+                (f as any).categoryName ?? f.properties?.[dimension];
+              if (raw == null) return true;
+              const key =
+                typeof raw === 'string'
+                  ? raw.trim().toLowerCase()
+                  : String(raw);
+              return !disabledKeys.has(key);
+            })
+          : allFeatures;
+
+      const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+      setSelectedFeatures(selected);
     },
     onActivate: () => {
       setMeasureState({
@@ -1259,6 +1288,13 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
+      {selectedFeatures.length > 0 && (
+        <LassoResultsBar
+          count={selectedFeatures.length}
+          features={selectedFeatures}
+          onClear={clearSelection}
+        />
+      )}
       <MeasureOverlay
         measureState={measureState}
         onMapClick={handleMeasureClick}

@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LassoDrawMode } from '../components/LassoOverlay';
 import type { Coordinate } from '../utils/measureDistance';
 import type { LassoLayer } from '../components/MapControls';
+import type { GeoJsonFeature } from '../types';
 
 export type UseLassoSelectionOptions = {
   /** Available layers for multi-layer selection. Omit or pass empty for single-layer. */
@@ -35,6 +36,10 @@ export type UseLassoSelectionResult = {
   lassoDrawMode: LassoDrawMode;
   setLassoDrawMode: (mode: LassoDrawMode) => void;
   selectedLassoLayerIds: string[];
+  selectedFeatures: GeoJsonFeature[];
+  setSelectedFeatures: (features: GeoJsonFeature[]) => void;
+  lassoPolygon: Coordinate[] | null;
+  clearSelection: () => void;
   handleLassoToggle: () => void;
   handleLassoActivate: () => void;
   handleLassoComplete: (polygon: Coordinate[]) => void;
@@ -58,6 +63,10 @@ export function useLassoSelection(
   const [selectedLassoLayerIds, setSelectedLassoLayerIds] = useState<string[]>(
     [],
   );
+  const [selectedFeatures, setSelectedFeatures] = useState<GeoJsonFeature[]>(
+    [],
+  );
+  const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
 
   // Auto-select the first layer when available layers load and none are selected.
   // Serialize IDs as the dependency so the effect only fires when actual layers change.
@@ -73,10 +82,17 @@ export function useLassoSelection(
     setLassoIsActive(false);
   }, []);
 
-  // Toggle lasso off — full reset including layer selections
+  const clearSelection = useCallback(() => {
+    setSelectedFeatures([]);
+    setLassoPolygon(null);
+  }, []);
+
+  // Toggle lasso off — full reset including layer selections and results
   const handleLassoToggle = useCallback(() => {
     setLassoIsActive(false);
     setSelectedLassoLayerIds([]);
+    setSelectedFeatures([]);
+    setLassoPolygon(null);
   }, []);
 
   // Activate lasso drawing and notify parent (e.g. to deactivate ruler)
@@ -85,8 +101,9 @@ export function useLassoSelection(
     setLassoIsActive(true);
   }, []);
 
-  // Forward completed polygon to consumer
+  // Store completed polygon and forward to consumer
   const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
+    setLassoPolygon(polygon);
     onPolygonCompleteRef.current?.(polygon);
   }, []);
 
@@ -106,6 +123,8 @@ export function useLassoSelection(
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setLassoIsActive(false);
+        setSelectedFeatures([]);
+        setLassoPolygon(null);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -117,6 +136,10 @@ export function useLassoSelection(
     lassoDrawMode,
     setLassoDrawMode,
     selectedLassoLayerIds,
+    selectedFeatures,
+    setSelectedFeatures,
+    lassoPolygon,
+    clearSelection,
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,

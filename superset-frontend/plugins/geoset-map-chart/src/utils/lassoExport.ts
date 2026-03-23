@@ -1,0 +1,107 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+import type { GeoJsonFeature } from '../types';
+import { getRepresentativePoint } from './lassoSelection';
+
+/**
+ * Flatten feature properties into tabular rows for export.
+ */
+export function featuresToRows(
+  features: GeoJsonFeature[],
+): { headers: string[]; rows: Record<string, any>[] } {
+  const keySet = new Set<string>();
+  features.forEach(f => {
+    if (f.properties) {
+      Object.keys(f.properties).forEach(k => keySet.add(k));
+    }
+  });
+
+  const propHeaders = Array.from(keySet).sort();
+  const headers = ['_geometry_type', '_longitude', '_latitude', ...propHeaders];
+
+  const rows = features.map(f => {
+    const pt = getRepresentativePoint(f);
+    const row: Record<string, any> = {
+      _geometry_type: f.geometry?.type ?? '',
+      _longitude: pt?.[0] ?? '',
+      _latitude: pt?.[1] ?? '',
+    };
+    propHeaders.forEach(key => {
+      row[key] = f.properties?.[key] ?? '';
+    });
+    return row;
+  });
+
+  return { headers, rows };
+}
+
+function timestamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escapeCSV(value: any): string {
+  const str = String(value ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+/**
+ * Download selected features as a CSV file.
+ */
+export function exportToCSV(
+  features: GeoJsonFeature[],
+  filename?: string,
+): void {
+  const { headers, rows } = featuresToRows(features);
+  const csvLines = [
+    headers.map(escapeCSV).join(','),
+    ...rows.map(row => headers.map(h => escapeCSV(row[h])).join(',')),
+  ];
+  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv' });
+  triggerDownload(blob, filename ?? `lasso-selection-${timestamp()}.csv`);
+}
+
+/**
+ * Download selected features as an Excel (.xlsx) file.
+ * xlsx is lazy-loaded to avoid adding ~200KB to the initial bundle.
+ */
+export async function exportToExcel(
+  features: GeoJsonFeature[],
+  filename?: string,
+): Promise<void> {
+  const XLSX = await import('xlsx');
+  const { headers, rows } = featuresToRows(features);
+  const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Lasso Selection');
+  XLSX.writeFile(wb, filename ?? `lasso-selection-${timestamp()}.xlsx`);
+}
