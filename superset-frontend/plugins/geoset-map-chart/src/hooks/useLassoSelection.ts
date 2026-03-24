@@ -23,7 +23,7 @@ import type { LassoLayer } from '../components/MapControls';
 import type { GeoJsonFeature } from '../types';
 
 export type UseLassoSelectionOptions = {
-  /** Available layers for multi-layer selection. Omit or pass empty for single-layer. */
+  /** Available layers for lasso selection. Omit or pass empty for single-layer. */
   availableLayers?: LassoLayer[];
   /** Called when lasso polygon drawing completes. */
   onPolygonComplete?: (polygon: Coordinate[]) => void;

@@ -122,8 +122,8 @@ Each phase checks a staleness flag before proceeding. When the user changes a fi
 | `components/MapControls.tsx` | Zoom controls, measurement tool, and lasso select tool |
 | `components/LassoOverlay.tsx` | Lasso drawing layers (freehand and point-to-point polygon modes) via `useLassoLayer` hook |
 | `components/LassoResultsBar.tsx` | Selection count bar with CSV/Excel export menu |
-| `hooks/useLassoSelection.ts` | Shared React hook managing lasso state, polygon completion, and multi-layer selection |
-| `utils/lassoSelection.ts` | Point-in-polygon filtering for lasso-selected features |
+| `hooks/useLassoSelection.ts` | Shared React hook managing lasso state, polygon completion, and layer selection |
+| `utils/lassoSelection.ts` | Geometric intersection filtering (point-in-polygon and area-overlap) for lasso-selected features |
 | `utils/lassoExport.ts` | CSV and Excel export for lasso-selected features |
 
 ## Branch Strategy
