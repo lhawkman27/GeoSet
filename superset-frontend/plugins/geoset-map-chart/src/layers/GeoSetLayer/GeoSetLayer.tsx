@@ -38,6 +38,7 @@ import {
   QueryFormData,
 } from '@superset-ui/core';
 import { Alert } from 'antd';
+import { WebMercatorViewport } from '@math.gl/web-mercator';
 import Layer from '@deck.gl/core/dist/lib/layer';
 import { useLassoSelection } from '../../hooks/useLassoSelection';
 import {
@@ -957,6 +958,8 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
+    anchorPosition,
+    setAnchorPosition,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -997,6 +1000,14 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       );
       console.groupEnd();
       setSelectedFeatures(selected);
+
+      // Anchor the results bar near the end of the lasso
+      const lastCoord = polygon[polygon.length - 1];
+      if (lastCoord) {
+        const wmv = new WebMercatorViewport({ ...viewport, width, height });
+        const [px, py] = wmv.project(lastCoord);
+        setAnchorPosition({ x: px, y: py + 12 });
+      }
     },
     onActivate: () => {
       setMeasureState({
@@ -1302,6 +1313,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           count={selectedFeatures.length}
           features={selectedFeatures}
           onClear={clearSelection}
+          anchorPosition={anchorPosition}
         />
       )}
       <MeasureOverlay

@@ -21,6 +21,7 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
+import { WebMercatorViewport } from '@math.gl/web-mercator';
 import {
   Datasource,
   HandlerFunction,
@@ -1021,6 +1022,8 @@ const DeckMulti = (props: DeckMultiProps) => {
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
+    anchorPosition,
+    setAnchorPosition,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -1075,6 +1078,14 @@ const DeckMulti = (props: DeckMultiProps) => {
       });
       console.groupEnd();
       setSelectedFeatures(result.features);
+
+      // Anchor the results bar near the end of the lasso
+      const lastCoord = polygon[polygon.length - 1];
+      if (lastCoord) {
+        const wmv = new WebMercatorViewport({ ...viewport, width, height });
+        const [px, py] = wmv.project(lastCoord);
+        setAnchorPosition({ x: px, y: py + 12 });
+      }
     },
     onActivate: () => {
       setMeasureState({
@@ -1246,6 +1257,7 @@ const DeckMulti = (props: DeckMultiProps) => {
           count={selectedFeatures.length}
           features={selectedFeatures}
           onClear={clearSelection}
+          anchorPosition={anchorPosition}
         />
       )}
       {clickedFeature && (

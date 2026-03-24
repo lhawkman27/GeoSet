@@ -25,16 +25,18 @@ export interface LassoResultsBarProps {
   count: number;
   features: GeoJsonFeature[];
   onClear: () => void;
+  anchorPosition?: { x: number; y: number } | null;
 }
 
 const CONTROL_MARGIN = 12;
-// MapControls bar height (32px) + gap
 const TOP_OFFSET = 32 + CONTROL_MARGIN + 8;
 
-const BarContainer = styled.div`
+const BarContainer = styled.div<{ $x?: number; $y?: number }>`
   position: absolute;
-  top: ${TOP_OFFSET}px;
-  left: ${CONTROL_MARGIN}px;
+  ${({ $x, $y }) =>
+    $x != null && $y != null
+      ? `left: ${$x}px; top: ${$y}px;`
+      : `left: ${CONTROL_MARGIN}px; top: ${TOP_OFFSET}px;`}
   z-index: 20;
   pointer-events: auto;
 `;
@@ -172,6 +174,7 @@ const LassoResultsBar = ({
   count,
   features,
   onClear,
+  anchorPosition,
 }: LassoResultsBarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -193,7 +196,11 @@ const LassoResultsBar = ({
   if (count === 0) return null;
 
   return (
-    <BarContainer ref={containerRef}>
+    <BarContainer
+      ref={containerRef}
+      $x={anchorPosition?.x}
+      $y={anchorPosition?.y}
+    >
       <BarContent>
         <CountLabel>{count} Items Selected</CountLabel>
         <IconButton
