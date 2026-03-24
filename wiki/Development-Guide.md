@@ -120,6 +120,9 @@ Each phase checks a staleness flag before proceeding. When the user changes a fi
 | `utils/liveViewportStore.ts` | Module-level store for live viewport state (bypasses Redux to avoid "Altered" chart state) |
 | `components/MultiLegend.tsx` | Drag-and-drop multi-layer legend with toggle/isolate |
 | `components/MapControls.tsx` | Zoom controls, measurement tool, and lasso select tool |
+| `components/LassoOverlay.tsx` | Lasso drawing layers (freehand and point-to-point polygon modes) via `useLassoLayer` hook |
+| `components/LassoResultsBar.tsx` | Selection count bar with CSV/Excel export menu |
+| `hooks/useLassoSelection.ts` | Shared React hook managing lasso state, polygon completion, and multi-layer selection |
 | `utils/lassoSelection.ts` | Point-in-polygon filtering for lasso-selected features |
 | `utils/lassoExport.ts` | CSV and Excel export for lasso-selected features |
 
