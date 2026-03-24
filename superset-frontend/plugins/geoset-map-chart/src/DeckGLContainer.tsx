@@ -72,6 +72,7 @@ export type DeckGLContainerProps = {
   onMeasureDragEnd?: (coordinate: Coordinate) => void;
   lassoIsActive?: boolean;
   lassoDrawMode?: LassoDrawMode;
+  lassoPolygon?: Coordinate[] | null;
   onLassoComplete?: (polygon: Coordinate[]) => void;
   onEmptyClick?: () => void;
 };
@@ -380,11 +381,13 @@ export const DeckGLContainer = memo(
     // Get lasso editable layer (library-based drawing)
     const lassoIsActive = props.lassoIsActive ?? false;
     const lassoDrawMode = props.lassoDrawMode ?? 'freehand';
+    const lassoPolygon = props.lassoPolygon ?? null;
     const handleLassoComplete = props.onLassoComplete ?? (() => {});
     const { layers: lassoLayers } = useLassoLayer(
       lassoIsActive,
       handleLassoComplete,
       lassoDrawMode,
+      lassoPolygon,
     );
 
     const allLayers = useMemo(() => {

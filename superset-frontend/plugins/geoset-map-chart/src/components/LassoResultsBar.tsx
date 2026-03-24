@@ -27,11 +27,14 @@ export interface LassoResultsBarProps {
   onClear: () => void;
 }
 
+const CONTROL_MARGIN = 12;
+// MapControls bar height (32px) + gap
+const TOP_OFFSET = 32 + CONTROL_MARGIN + 8;
+
 const BarContainer = styled.div`
   position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: ${TOP_OFFSET}px;
+  left: ${CONTROL_MARGIN}px;
   z-index: 20;
   pointer-events: auto;
 `;
@@ -40,8 +43,8 @@ const BarContent = styled.div(
   ({ theme }) => `
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 10px 8px 10px 16px;
   background: ${theme.colorBgElevated};
   border: 1px solid ${theme.colorBorderSecondary};
   border-radius: 6px;
@@ -52,9 +55,10 @@ const BarContent = styled.div(
 
 const CountLabel = styled.span(
   ({ theme }) => `
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: ${theme.colorText};
+  margin-right: 4px;
 `,
 );
 
@@ -82,14 +86,24 @@ const IconButton = styled.button(
 const MenuPanel = styled.div(
   ({ theme }) => `
   position: absolute;
-  bottom: calc(100% + 6px);
-  right: 0;
-  min-width: 160px;
+  top: 0;
+  left: calc(100% + 6px);
+  min-width: 170px;
   background: ${theme.colorBgElevated};
   border: 1px solid ${theme.colorBorderSecondary};
   border-radius: 6px;
   box-shadow: 0 4px 12px ${theme.colorText}1F;
   overflow: hidden;
+`,
+);
+
+const MenuHeader = styled.div(
+  ({ theme }) => `
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${theme.colorTextSecondary};
+  border-bottom: 1px solid ${theme.colorBorderSecondary};
 `,
 );
 
@@ -154,11 +168,14 @@ const DownloadIcon = () => (
   </svg>
 );
 
-const LassoResultsBar = ({ count, features, onClear }: LassoResultsBarProps) => {
+const LassoResultsBar = ({
+  count,
+  features,
+  onClear,
+}: LassoResultsBarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on outside click
   useEffect(() => {
     if (!isMenuOpen) return undefined;
     const handleOutsideClick = (e: MouseEvent) => {
@@ -192,17 +209,19 @@ const LassoResultsBar = ({ count, features, onClear }: LassoResultsBarProps) => 
 
       {isMenuOpen && (
         <MenuPanel>
+          <MenuHeader>Download</MenuHeader>
           <MenuItem
             onClick={() => {
               exportToCSV(features);
               setIsMenuOpen(false);
+              onClear();
             }}
           >
             <DownloadIcon /> Export to .CSV
           </MenuItem>
           <MenuItem
             onClick={() => {
-              exportToExcel(features);
+              exportToExcel(features).then(() => onClear());
               setIsMenuOpen(false);
             }}
           >

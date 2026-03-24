@@ -23,6 +23,9 @@ import {
   DrawPolygonMode,
   ViewMode,
 } from '@deck.gl-community/editable-layers';
+import { PathLayer } from '@deck.gl/layers';
+import { SolidPolygonLayer } from '@deck.gl/layers';
+import { PathStyleExtension } from '@deck.gl/extensions';
 import type { Coordinate } from '../utils/measureDistance';
 
 export type LassoDrawMode = 'freehand' | 'polygon';
@@ -46,13 +49,17 @@ const DRAW_MODES = {
 };
 
 /**
- * Hook to create an EditableGeoJsonLayer for lasso drawing.
- * Supports freehand (drag) and point-to-point (click vertices, double-click to close).
+ * Hook to create layers for lasso drawing and completed polygon display.
+ *
+ * - While drawing: EditableGeoJsonLayer handles mouse interaction
+ * - After completion: separate SolidPolygonLayer (fill) + PathLayer (dashed outline)
+ *   keep the polygon visible regardless of what the editable layer does
  */
 export function useLassoLayer(
   isActive: boolean,
   onPolygonComplete: (polygon: Coordinate[]) => void,
   drawMode: LassoDrawMode = 'freehand',
+  completedPolygon: Coordinate[] | null = null,
 ): { layers: any[] } {
   const [data, setData] = useState(EMPTY_FEATURE_COLLECTION);
   const [mode, setMode] = useState<EditModeConstructor>(
@@ -78,7 +85,6 @@ export function useLassoLayer(
     ({ updatedData, editType }: { updatedData: any; editType: string }) => {
       setData(updatedData);
       if (editType === 'addFeature') {
-        // Polygon drawing complete — extract coordinates and switch to view mode
         const lastFeature =
           updatedData.features[updatedData.features.length - 1];
         const coords: number[][] = lastFeature.geometry.coordinates[0];
@@ -89,7 +95,8 @@ export function useLassoLayer(
     [onPolygonComplete],
   );
 
-  const layers = useMemo(() => {
+  // Editable layer for drawing phase
+  const editableLayer = useMemo(() => {
     if (!isActive) return [];
 
     return [
@@ -100,19 +107,56 @@ export function useLassoLayer(
         selectedFeatureIndexes: [],
         onEdit: handleEdit,
 
-        // Completed polygon styling
-        getFillColor: [66, 133, 244, 40],
-        getLineColor: [50, 50, 50, 200],
+        getFillColor: [66, 133, 244, 30],
+        getLineColor: [40, 40, 40, 220],
         lineWidthMinPixels: 2,
 
-        // Tentative polygon styling (while drawing)
-        getTentativeFillColor: [66, 133, 244, 20],
-        getTentativeLineColor: [50, 50, 50, 180],
+        getTentativeFillColor: [66, 133, 244, 15],
+        getTentativeLineColor: [40, 40, 40, 200],
 
         pickable: true,
       }),
     ];
   }, [isActive, data, mode, handleEdit]);
+
+  // Static layers for the completed polygon — persists after drawing finishes
+  const completedLayers = useMemo(() => {
+    if (!completedPolygon || completedPolygon.length < 3) return [];
+
+    // Close the ring if needed
+    const ring = [...completedPolygon];
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      ring.push(first);
+    }
+
+    return [
+      new SolidPolygonLayer({
+        id: 'lasso-completed-fill',
+        data: [{ polygon: ring }],
+        getPolygon: (d: any) => d.polygon,
+        getFillColor: [66, 133, 244, 30],
+        pickable: false,
+      }),
+      new PathLayer({
+        id: 'lasso-completed-outline',
+        data: [{ path: ring }],
+        getPath: (d: any) => d.path,
+        getColor: [40, 40, 40, 220],
+        widthMinPixels: 2,
+        getDashArray: [8, 4],
+        dashJustified: true,
+        extensions: [new PathStyleExtension({ dash: true })],
+        pickable: false,
+      }),
+    ];
+  }, [completedPolygon]);
+
+  const layers = useMemo(
+    () => [...editableLayer, ...completedLayers],
+    [editableLayer, completedLayers],
+  );
 
   return { layers };
 }

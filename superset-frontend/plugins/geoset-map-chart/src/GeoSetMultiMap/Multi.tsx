@@ -1020,6 +1020,7 @@ const DeckMulti = (props: DeckMultiProps) => {
     selectedLassoLayerIds,
     selectedFeatures,
     setSelectedFeatures,
+    lassoPolygon,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -1060,6 +1061,19 @@ const DeckMulti = (props: DeckMultiProps) => {
         layerFeatureMap[name] = visibleFeatures;
       });
       const result = filterMultiLayerFeaturesInLasso(layerFeatureMap, polygon);
+      // Debug: view lassoed data in browser console
+      console.group(`🔍 Lasso selected ${result.count} features`);
+      Object.entries(result.byLayer).forEach(([layer, feats]) => {
+        console.groupCollapsed(`${layer} (${feats.length})`);
+        console.table(
+          feats.map(f => ({
+            geometryType: f.geometry?.type,
+            ...f.properties,
+          })),
+        );
+        console.groupEnd();
+      });
+      console.groupEnd();
       setSelectedFeatures(result.features);
     },
     onActivate: () => {
@@ -1201,6 +1215,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         onMeasureDragEnd={handleMeasureDragEnd}
         lassoIsActive={lassoIsActive}
         lassoDrawMode={lassoDrawMode}
+        lassoPolygon={lassoPolygon}
         onLassoComplete={handleLassoComplete}
         onEmptyClick={handleClosePopup}
       />

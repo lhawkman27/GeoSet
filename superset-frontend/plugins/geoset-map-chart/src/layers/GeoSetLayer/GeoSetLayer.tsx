@@ -18,7 +18,6 @@
  * under the License.
  */
 import { memo, useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { useLassoSelection } from '../../hooks/useLassoSelection';
 import {
   GeoJsonLayer,
   IconLayer,
@@ -40,6 +39,7 @@ import {
 } from '@superset-ui/core';
 import { Alert } from 'antd';
 import Layer from '@deck.gl/core/dist/lib/layer';
+import { useLassoSelection } from '../../hooks/useLassoSelection';
 import {
   DeckGLContainerHandle,
   DeckGLContainerStyledWrapper,
@@ -956,6 +956,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     setLassoDrawMode,
     selectedFeatures,
     setSelectedFeatures,
+    lassoPolygon,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -963,8 +964,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     deactivateLasso,
   } = useLassoSelection({
     onPolygonComplete: polygon => {
-      const allFeatures =
-        (payload?.data?.features as GeoJsonFeature[]) || [];
+      const allFeatures = (payload?.data?.features as GeoJsonFeature[]) || [];
       const dimension = propVisualConfig?.dimension as string | undefined;
 
       // Only include features whose category is visible in the legend
@@ -976,8 +976,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       const visibleFeatures =
         disabledKeys.size > 0 && dimension
           ? allFeatures.filter(f => {
-              const raw =
-                (f as any).categoryName ?? f.properties?.[dimension];
+              const raw = (f as any).categoryName ?? f.properties?.[dimension];
               if (raw == null) return true;
               const key =
                 typeof raw === 'string'
@@ -988,6 +987,15 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           : allFeatures;
 
       const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+      // Debug: view lassoed data in browser console
+      console.group(`🔍 Lasso selected ${selected.length} features`);
+      console.table(
+        selected.map(f => ({
+          geometryType: f.geometry?.type,
+          ...f.properties,
+        })),
+      );
+      console.groupEnd();
       setSelectedFeatures(selected);
     },
     onActivate: () => {
@@ -1258,6 +1266,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onMeasureDragEnd={handleMeasureDragEnd}
         lassoIsActive={lassoIsActive}
         lassoDrawMode={lassoDrawMode}
+        lassoPolygon={lassoPolygon}
         onLassoComplete={handleLassoComplete}
         onEmptyClick={handleClosePopup}
       />
