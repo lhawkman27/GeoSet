@@ -118,30 +118,30 @@ describe('Lasso — multi-layer', () => {
     { id: '3', name: 'Air Quality' },
   ];
 
-  it('opens dropdown with "Select layers" header and layer list', () => {
+  it('opens dropdown with "Select layer" header and layer list', () => {
     renderMapControls({ lassoLayers: layers });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    expect(screen.getByText('Select layers')).toBeInTheDocument();
+    expect(screen.getByText('Select layer')).toBeInTheDocument();
     expect(screen.getByText('Burn Areas')).toBeInTheDocument();
     expect(screen.getByText('Program Offices')).toBeInTheDocument();
     expect(screen.getByText('Air Quality')).toBeInTheDocument();
   });
 
-  it('calls onLassoLayerToggle when a layer is clicked', () => {
-    const onLassoLayerToggle = jest.fn();
-    renderMapControls({ lassoLayers: layers, onLassoLayerToggle });
+  it('calls onLassoLayerSelect when a layer is clicked', () => {
+    const onLassoLayerSelect = jest.fn();
+    renderMapControls({ lassoLayers: layers, onLassoLayerSelect });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
     userEvent.click(screen.getByText('Program Offices'));
-    expect(onLassoLayerToggle).toHaveBeenCalledWith('2');
+    expect(onLassoLayerSelect).toHaveBeenCalledWith('2');
   });
 
-  it('calls onLassoActivate on close when layers are selected', () => {
+  it('calls onLassoActivate on close when a layer is selected', () => {
     const onLassoActivate = jest.fn();
     renderMapControls({
       lassoLayers: layers,
-      activeLassoLayerIds: ['2'],
+      activeLassoLayerId: '2',
       onLassoActivate,
     });
 
@@ -150,11 +150,10 @@ describe('Lasso — multi-layer', () => {
     expect(onLassoActivate).toHaveBeenCalledTimes(1);
   });
 
-  it('does NOT call onLassoActivate on close when no layers selected', () => {
+  it('does NOT call onLassoActivate on close when no layer selected', () => {
     const onLassoActivate = jest.fn();
     renderMapControls({
       lassoLayers: layers,
-      activeLassoLayerIds: [],
       onLassoActivate,
     });
 

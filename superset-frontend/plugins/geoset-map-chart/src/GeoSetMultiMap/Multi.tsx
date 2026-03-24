@@ -1017,7 +1017,7 @@ const DeckMulti = (props: DeckMultiProps) => {
     lassoIsActive,
     lassoDrawMode,
     setLassoDrawMode,
-    selectedLassoLayerIds,
+    selectedLassoLayerId,
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
@@ -1025,7 +1025,7 @@ const DeckMulti = (props: DeckMultiProps) => {
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,
-    handleLassoLayerToggle,
+    handleLassoLayerSelect,
     deactivateLasso,
   } = useLassoSelection({
     availableLayers: lassoLayers,
@@ -1033,7 +1033,7 @@ const DeckMulti = (props: DeckMultiProps) => {
       const layerFeatureMap: Record<string, GeoJsonFeature[]> = {};
       sortedLayers.forEach(entry => {
         const layerId = String(entry.sliceId);
-        if (!selectedLassoLayerIds.includes(layerId)) return;
+        if (layerId !== selectedLassoLayerId) return;
 
         const allFeatures =
           (entry.transformedProps.payload?.data
@@ -1235,8 +1235,8 @@ const DeckMulti = (props: DeckMultiProps) => {
         onLassoActivate={handleLassoActivate}
         isLassoActive={lassoIsActive}
         lassoLayers={lassoLayers}
-        activeLassoLayerIds={selectedLassoLayerIds}
-        onLassoLayerToggle={handleLassoLayerToggle}
+        activeLassoLayerId={selectedLassoLayerId}
+        onLassoLayerSelect={handleLassoLayerSelect}
         lassoDrawMode={lassoDrawMode}
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"

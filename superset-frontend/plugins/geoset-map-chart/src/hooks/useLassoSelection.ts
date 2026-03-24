@@ -35,7 +35,7 @@ export type UseLassoSelectionResult = {
   lassoIsActive: boolean;
   lassoDrawMode: LassoDrawMode;
   setLassoDrawMode: (mode: LassoDrawMode) => void;
-  selectedLassoLayerIds: string[];
+  selectedLassoLayerId: string | undefined;
   selectedFeatures: GeoJsonFeature[];
   setSelectedFeatures: (features: GeoJsonFeature[]) => void;
   lassoPolygon: Coordinate[] | null;
@@ -43,7 +43,7 @@ export type UseLassoSelectionResult = {
   handleLassoToggle: () => void;
   handleLassoActivate: () => void;
   handleLassoComplete: (polygon: Coordinate[]) => void;
-  handleLassoLayerToggle: (layerId: string) => void;
+  handleLassoLayerSelect: (layerId: string) => void;
   deactivateLasso: () => void;
 };
 
@@ -60,20 +60,19 @@ export function useLassoSelection(
 
   const [lassoIsActive, setLassoIsActive] = useState(false);
   const [lassoDrawMode, setLassoDrawMode] = useState<LassoDrawMode>('freehand');
-  const [selectedLassoLayerIds, setSelectedLassoLayerIds] = useState<string[]>(
-    [],
-  );
+  const [selectedLassoLayerId, setSelectedLassoLayerId] = useState<
+    string | undefined
+  >();
   const [selectedFeatures, setSelectedFeatures] = useState<GeoJsonFeature[]>(
     [],
   );
   const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
 
-  // Auto-select the first layer when available layers load and none are selected.
-  // Serialize IDs as the dependency so the effect only fires when actual layers change.
+  // Auto-select the first layer when available layers load and none is selected.
   const availableLayerIds = availableLayers.map(l => l.id).join(',');
   useEffect(() => {
-    if (availableLayers.length > 0 && selectedLassoLayerIds.length === 0) {
-      setSelectedLassoLayerIds([availableLayers[0].id]);
+    if (availableLayers.length > 0 && !selectedLassoLayerId) {
+      setSelectedLassoLayerId(availableLayers[0].id);
     }
   }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -87,10 +86,10 @@ export function useLassoSelection(
     setLassoPolygon(null);
   }, []);
 
-  // Toggle lasso off — full reset including layer selections and results
+  // Toggle lasso off — full reset including layer selection and results
   const handleLassoToggle = useCallback(() => {
     setLassoIsActive(false);
-    setSelectedLassoLayerIds([]);
+    setSelectedLassoLayerId(undefined);
     setSelectedFeatures([]);
     setLassoPolygon(null);
   }, []);
@@ -107,13 +106,9 @@ export function useLassoSelection(
     onPolygonCompleteRef.current?.(polygon);
   }, []);
 
-  // Toggle a layer in/out of the multi-layer selection
-  const handleLassoLayerToggle = useCallback((layerId: string) => {
-    setSelectedLassoLayerIds(prev =>
-      prev.includes(layerId)
-        ? prev.filter(id => id !== layerId)
-        : [...prev, layerId],
-    );
+  // Select a single layer for lasso
+  const handleLassoLayerSelect = useCallback((layerId: string) => {
+    setSelectedLassoLayerId(layerId);
   }, []);
 
   // Escape key exits lasso mode
@@ -135,7 +130,7 @@ export function useLassoSelection(
     lassoIsActive,
     lassoDrawMode,
     setLassoDrawMode,
-    selectedLassoLayerIds,
+    selectedLassoLayerId,
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
@@ -143,7 +138,7 @@ export function useLassoSelection(
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,
-    handleLassoLayerToggle,
+    handleLassoLayerSelect,
     deactivateLasso,
   };
 }

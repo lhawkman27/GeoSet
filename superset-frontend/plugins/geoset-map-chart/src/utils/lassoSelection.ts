@@ -16,11 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+import area from '@turf/area';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import centroid from '@turf/centroid';
+import intersect from '@turf/intersect';
 import { polygon as turfPolygon, point as turfPoint } from '@turf/helpers';
 import type { Coordinate } from './measureDistance';
 import type { GeoJsonFeature } from '../types';
+
+/** Minimum overlap ratio (0–1) for a polygon to be captured by the lasso. */
+const POLYGON_OVERLAP_THRESHOLD = 0.5;
 
 export interface LassoSelectionResult {
   features: GeoJsonFeature[];
@@ -30,7 +35,7 @@ export interface LassoSelectionResult {
 
 /**
  * Get a representative [lng, lat] for any GeoJSON geometry type.
- * Points use coordinates directly; everything else uses @turf/centroid.
+ * Used for point features and as a fallback for export coordinates.
  */
 export function getRepresentativePoint(
   feature: GeoJsonFeature,
@@ -42,7 +47,7 @@ export function getRepresentativePoint(
     case 'Point':
       return geometry.coordinates as [number, number];
     case 'MultiPoint':
-      return geometry.coordinates?.[0] as [number, number] ?? null;
+      return (geometry.coordinates?.[0] as [number, number]) ?? null;
     default: {
       try {
         const c = centroid(feature as any);
@@ -66,7 +71,53 @@ function closeRing(coords: Coordinate[]): Coordinate[] {
 }
 
 /**
- * Filter features that have a representative point inside the lasso polygon.
+ * Test whether a feature intersects the lasso polygon.
+ *
+ * - Point / MultiPoint: direct point-in-polygon test (fast)
+ * - Polygon / LineString / etc.: boolean intersects test —
+ *   selected if any part of the geometry overlaps the lasso area
+ */
+function isFeatureInLasso(
+  feature: GeoJsonFeature,
+  lassoPoly: ReturnType<typeof turfPolygon>,
+): boolean {
+  const { geometry } = feature;
+  if (!geometry || !geometry.type) return false;
+
+  try {
+    switch (geometry.type) {
+      case 'Point': {
+        const pt = geometry.coordinates as [number, number];
+        return booleanPointInPolygon(turfPoint(pt), lassoPoly);
+      }
+      case 'MultiPoint': {
+        // Selected if any point in the multi-point is inside
+        return (geometry.coordinates as [number, number][]).some(pt =>
+          booleanPointInPolygon(turfPoint(pt), lassoPoly),
+        );
+      }
+      case 'Polygon':
+      case 'MultiPolygon': {
+        // Selected if >= 50% of the polygon's area is inside the lasso
+        const featureArea = area(feature as any);
+        if (featureArea === 0) return false;
+        const overlap = intersect(
+          { type: 'FeatureCollection', features: [feature as any, lassoPoly] },
+        );
+        if (!overlap) return false;
+        return area(overlap) / featureArea >= POLYGON_OVERLAP_THRESHOLD;
+      }
+      default:
+        // LineString, MultiLineString, GeometryCollection — skip
+        return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Filter features that intersect the lasso polygon.
  */
 export function filterFeaturesInLasso(
   features: GeoJsonFeature[],
@@ -77,11 +128,7 @@ export function filterFeaturesInLasso(
   const closed = closeRing(lassoCoords);
   const poly = turfPolygon([closed]);
 
-  return features.filter(feature => {
-    const pt = getRepresentativePoint(feature);
-    if (!pt) return false;
-    return booleanPointInPolygon(turfPoint(pt), poly);
-  });
+  return features.filter(feature => isFeatureInLasso(feature, poly));
 }
 
 /**

@@ -33,8 +33,8 @@ export type MapControlsProps = {
   onLassoActivate?: () => void;
   isLassoActive: boolean;
   lassoLayers?: LassoLayer[];
-  activeLassoLayerIds?: string[];
-  onLassoLayerToggle?: (layerId: string) => void;
+  activeLassoLayerId?: string;
+  onLassoLayerSelect?: (layerId: string) => void;
   lassoDrawMode?: LassoDrawMode;
   onLassoDrawModeChange?: (mode: LassoDrawMode) => void;
   position?: 'top-left' | 'top-right';
@@ -228,28 +228,17 @@ const PolygonIcon = () => (
   </svg>
 );
 
-const CheckboxIcon = ({ checked }: { checked: boolean }) => (
+const RadioIcon = ({ selected }: { selected: boolean }) => (
   <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <rect
-      x="1"
-      y="1"
-      width="14"
-      height="14"
-      rx="3"
+    <circle
+      cx="8"
+      cy="8"
+      r="6.5"
       stroke="currentColor"
       strokeWidth="1.5"
-      fill={checked ? 'currentColor' : 'none'}
+      fill="none"
     />
-    {checked && (
-      <polyline
-        points="4.5 8 7 10.5 11.5 5.5"
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    )}
+    {selected && <circle cx="8" cy="8" r="3.5" fill="currentColor" />}
   </svg>
 );
 
@@ -316,8 +305,8 @@ const MapControls = ({
   onLassoActivate,
   isLassoActive,
   lassoLayers = [],
-  activeLassoLayerIds = [],
-  onLassoLayerToggle,
+  activeLassoLayerId,
+  onLassoLayerSelect,
   lassoDrawMode = 'freehand',
   onLassoDrawModeChange,
   position = 'top-left',
@@ -335,8 +324,8 @@ const MapControls = ({
         !containerRef.current.contains(e.target as Node)
       ) {
         setIsDropdownOpen(false);
-        // Multi-layer requires at least one layer selected; single-layer always activates
-        if (!hasMultipleLayers || activeLassoLayerIds.length > 0) {
+        // Multi-layer requires a layer selected; single-layer always activates
+        if (!hasMultipleLayers || activeLassoLayerId) {
           onLassoActivate?.();
         }
       }
@@ -346,7 +335,7 @@ const MapControls = ({
   }, [
     isDropdownOpen,
     hasMultipleLayers,
-    activeLassoLayerIds.length,
+    activeLassoLayerId,
     onLassoActivate,
   ]);
 
@@ -359,13 +348,13 @@ const MapControls = ({
     }
   };
 
-  const handleLayerToggle = (layerId: string) => {
-    onLassoLayerToggle?.(layerId);
+  const handleLayerSelect = (layerId: string) => {
+    onLassoLayerSelect?.(layerId);
   };
 
   const handleCloseDropdown = () => {
     setIsDropdownOpen(false);
-    if (!hasMultipleLayers || activeLassoLayerIds.length > 0) {
+    if (!hasMultipleLayers || activeLassoLayerId) {
       onLassoActivate?.();
     }
   };
@@ -403,20 +392,20 @@ const MapControls = ({
       {isDropdownOpen && (
         <DropdownPanel>
           <DropdownHeader>
-            {hasMultipleLayers ? 'Select layers' : 'Lasso mode'}
+            {hasMultipleLayers ? 'Select layer' : 'Lasso mode'}
             <CloseButton onClick={handleCloseDropdown} title="Close">
               ✕
             </CloseButton>
           </DropdownHeader>
           {hasMultipleLayers &&
             lassoLayers.map(layer => {
-              const isChecked = activeLassoLayerIds.includes(layer.id);
+              const isSelected = layer.id === activeLassoLayerId;
               return (
                 <DropdownItem
                   key={layer.id}
-                  onClick={() => handleLayerToggle(layer.id)}
+                  onClick={() => handleLayerSelect(layer.id)}
                 >
-                  <CheckboxIcon checked={isChecked} />
+                  <RadioIcon selected={isSelected} />
                   {layer.name}
                 </DropdownItem>
               );
