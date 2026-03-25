@@ -1270,6 +1270,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         lassoDrawMode={lassoDrawMode}
         lassoPolygon={lassoPolygon}
         onLassoComplete={handleLassoComplete}
+        selectedFeatures={selectedFeatures}
         onEmptyClick={handleClosePopup}
       />
       <Legend

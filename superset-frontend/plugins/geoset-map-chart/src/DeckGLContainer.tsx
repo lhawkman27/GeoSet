@@ -34,6 +34,7 @@ import {
 import { StaticMap, MapRef } from 'react-map-gl';
 import DeckGL from '@deck.gl/react';
 import type { Deck, Layer } from '@deck.gl/core';
+import { GeoJsonLayer } from '@deck.gl/layers';
 import { JsonObject, JsonValue, styled } from '@superset-ui/core';
 import Tooltip, { TooltipProps } from './components/Tooltip';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -42,7 +43,7 @@ import {
   isValidViewport,
   toNumericViewport,
 } from './utils/fitViewport';
-import { LayerState } from './types';
+import { GeoJsonFeature, LayerState } from './types';
 import { MeasureState, useMeasureLayers } from './components/MeasureOverlay';
 import {
   LASSO_CURSOR,
@@ -74,6 +75,7 @@ export type DeckGLContainerProps = {
   lassoDrawMode?: LassoDrawMode;
   lassoPolygon?: Coordinate[] | null;
   onLassoComplete?: (polygon: Coordinate[]) => void;
+  selectedFeatures?: GeoJsonFeature[];
   onEmptyClick?: () => void;
 };
 
@@ -391,16 +393,50 @@ export const DeckGLContainer = memo(
       lassoPolygon,
     );
 
+    const selectedFeaturesArr = props.selectedFeatures ?? [];
+    const hasSelection = selectedFeaturesArr.length > 0;
+
+    // Build a highlight layer from lasso-selected features
+    const highlightLayer = useMemo(() => {
+      if (!hasSelection) return [];
+      return [
+        new GeoJsonLayer({
+          id: 'lasso-highlight',
+          data: {
+            type: 'FeatureCollection' as const,
+            features: selectedFeaturesArr,
+          },
+          getFillColor: (f: any) => f.color ?? f.properties?.color ?? [255, 200, 0, 200],
+          getLineColor: (f: any) =>
+            f.strokeColor ?? f.properties?.strokeColor ?? [40, 40, 40, 220],
+          getPointRadius: (f: any) => f.sizeValue ?? 4,
+          pointRadiusMinPixels: 4,
+          lineWidthMinPixels: 1,
+          pickable: false,
+        }),
+      ];
+    }, [hasSelection, selectedFeaturesArr]);
+
     const allLayers = useMemo(() => {
       if (!layerStates || layerStates.length === 0) {
-        return [...measureLayers, ...lassoLayers] as Layer[];
+        return [...measureLayers, ...highlightLayer, ...lassoLayers] as Layer[];
       }
-      const layers = layerStates
+      let layers = layerStates
         .map(ls => ls?.layer)
         .filter(Boolean) as Layer[];
 
-      return [...layers, ...measureLayers, ...lassoLayers] as Layer[];
-    }, [layerStates, measureLayers, lassoLayers]);
+      // Dim all data layers when there's an active lasso selection
+      if (hasSelection) {
+        layers = layers.map(l => l.clone({ opacity: 0.15 }));
+      }
+
+      return [
+        ...layers,
+        ...highlightLayer,
+        ...measureLayers,
+        ...lassoLayers,
+      ] as Layer[];
+    }, [layerStates, measureLayers, lassoLayers, highlightLayer, hasSelection]);
 
     useEffect(() => {
       if (!props.layerStates) return;

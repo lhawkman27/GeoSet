@@ -1216,6 +1216,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         lassoDrawMode={lassoDrawMode}
         lassoPolygon={lassoPolygon}
         onLassoComplete={handleLassoComplete}
+        selectedFeatures={selectedFeatures}
         onEmptyClick={handleClosePopup}
       />
       <MultiLegend
