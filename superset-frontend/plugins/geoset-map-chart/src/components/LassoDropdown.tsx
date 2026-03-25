@@ -210,7 +210,7 @@ const LassoDropdown = ({
         $isActive={drawMode === 'freehand'}
         onClick={() => onDrawModeChange?.('freehand')}
       >
-        <FreehandIcon /> Freehand
+        <FreehandIcon /> Click-and-drag
       </ModeButton>
       <ModeButton
         $isActive={drawMode === 'polygon'}

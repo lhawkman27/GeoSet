@@ -71,13 +71,28 @@ export function useLassoLayer(
   const onPolygonCompleteRef = useRef(onPolygonComplete);
   onPolygonCompleteRef.current = onPolygonComplete;
 
-  // Reset when lasso is activated or deactivated
+  // Reset when lasso is activated — brief delay before enabling draw mode
+  // so the click that closed the dropdown doesn't register as the first vertex
   useEffect(() => {
     if (isActive) {
       setData(EMPTY_FEATURE_COLLECTION);
+      setMode(() => ViewMode);
+      const timer = setTimeout(() => {
+        setMode(() => DRAW_MODES[drawMode]);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset drawing state when completed polygon is cleared (user dismissed results)
+  // so the editable layer returns to draw mode for a new lasso
+  useEffect(() => {
+    if (isActive && !completedPolygon) {
+      setData(EMPTY_FEATURE_COLLECTION);
       setMode(() => DRAW_MODES[drawMode]);
     }
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [completedPolygon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Switch draw mode while active (without resetting polygon data)
   useEffect(() => {
@@ -120,6 +135,38 @@ export function useLassoLayer(
 
         getTentativeFillColor: [66, 133, 244, 15],
         getTentativeLineColor: [40, 40, 40, 200],
+
+        // Dashed outline on both the main geojson and guides (tentative) sub-layers
+        _subLayerProps: {
+          geojson: {
+            _subLayerProps: {
+              linestrings: {
+                getDashArray: [8, 4],
+                dashJustified: true,
+                extensions: [new PathStyleExtension({ dash: true })],
+              },
+              'polygons-stroke': {
+                getDashArray: [8, 4],
+                dashJustified: true,
+                extensions: [new PathStyleExtension({ dash: true })],
+              },
+            },
+          },
+          guides: {
+            _subLayerProps: {
+              linestrings: {
+                getDashArray: [8, 4],
+                dashJustified: true,
+                extensions: [new PathStyleExtension({ dash: true })],
+              },
+              'polygons-stroke': {
+                getDashArray: [8, 4],
+                dashJustified: true,
+                extensions: [new PathStyleExtension({ dash: true })],
+              },
+            },
+          },
+        },
 
         pickable: true,
       }),

@@ -171,7 +171,7 @@ const MapControls = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const hasMultipleLayers = lassoLayers.length > 1;
 
-  // Close dropdown on outside click — only dismisses, does not activate lasso
+  // Close dropdown on outside click — activates lasso if a layer is selected
   useEffect(() => {
     if (!isDropdownOpen) return undefined;
     const handleOutsideClick = (e: MouseEvent) => {
@@ -180,11 +180,14 @@ const MapControls = ({
         !containerRef.current.contains(e.target as Node)
       ) {
         setIsDropdownOpen(false);
+        if (!hasMultipleLayers || activeLassoLayerId) {
+          onLassoActivate?.();
+        }
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isDropdownOpen]);
+  }, [isDropdownOpen, hasMultipleLayers, activeLassoLayerId, onLassoActivate]);
 
   const handleLassoButtonClick = () => {
     if (isLassoActive) {

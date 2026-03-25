@@ -26,6 +26,7 @@ import {
   ScatterplotLayer,
 } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
+import { WebMercatorViewport } from '@math.gl/web-mercator';
 // ignoring the eslint error below since typescript prefers 'geojson' to '@types/geojson'
 // eslint-disable-next-line import/no-unresolved
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
@@ -957,6 +958,8 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
+    anchorPosition,
+    setAnchorPosition,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -988,6 +991,14 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
 
       const selected = filterFeaturesInLasso(visibleFeatures, polygon);
       setSelectedFeatures(selected);
+
+      // Anchor the results bar near the end of the lasso
+      const lastCoord = polygon[polygon.length - 1];
+      if (lastCoord) {
+        const wmv = new WebMercatorViewport({ ...viewport, width, height });
+        const [px, py] = wmv.project(lastCoord);
+        setAnchorPosition({ x: px, y: py + 12 });
+      }
     },
     onActivate: () => {
       setMeasureState({
@@ -1293,6 +1304,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           count={selectedFeatures.length}
           features={selectedFeatures}
           onClear={clearSelection}
+          anchorPosition={anchorPosition}
         />
       )}
       <MeasureOverlay

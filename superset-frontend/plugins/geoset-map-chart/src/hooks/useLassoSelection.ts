@@ -25,6 +25,8 @@ import type { GeoJsonFeature } from '../types';
 export type UseLassoSelectionOptions = {
   /** Available layers for lasso selection. Omit or pass empty for single-layer. */
   availableLayers?: LassoLayer[];
+  /** Preferred default layer name. Falls back to first layer if not found. */
+  defaultLayerName?: string;
   /** Called when lasso polygon drawing completes. */
   onPolygonComplete?: (polygon: Coordinate[]) => void;
   /** Called when lasso is activated (useful for deactivating other modes like ruler). */
@@ -39,6 +41,8 @@ export type UseLassoSelectionResult = {
   selectedFeatures: GeoJsonFeature[];
   setSelectedFeatures: (features: GeoJsonFeature[]) => void;
   lassoPolygon: Coordinate[] | null;
+  anchorPosition: { x: number; y: number } | null;
+  setAnchorPosition: (pos: { x: number; y: number } | null) => void;
   clearSelection: () => void;
   handleLassoToggle: () => void;
   handleLassoActivate: () => void;
@@ -50,7 +54,7 @@ export type UseLassoSelectionResult = {
 export function useLassoSelection(
   options: UseLassoSelectionOptions = {},
 ): UseLassoSelectionResult {
-  const { availableLayers = [] } = options;
+  const { availableLayers = [], defaultLayerName } = options;
 
   // Use refs for callbacks to avoid stale closures without re-triggering effects
   const onPolygonCompleteRef = useRef(options.onPolygonComplete);
@@ -67,12 +71,21 @@ export function useLassoSelection(
     [],
   );
   const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
+  const [anchorPosition, setAnchorPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
-  // Auto-select the first layer when available layers load and none is selected.
+  // Auto-select the preferred layer (by name), falling back to first layer.
   const availableLayerIds = availableLayers.map(l => l.id).join(',');
   useEffect(() => {
     if (availableLayers.length > 0 && !selectedLassoLayerId) {
-      setSelectedLassoLayerId(availableLayers[0].id);
+      const preferred = defaultLayerName
+        ? availableLayers.find(
+            l => l.name.toLowerCase() === defaultLayerName.toLowerCase(),
+          )
+        : undefined;
+      setSelectedLassoLayerId(preferred?.id ?? availableLayers[0].id);
     }
   }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -84,14 +97,15 @@ export function useLassoSelection(
   const clearSelection = useCallback(() => {
     setSelectedFeatures([]);
     setLassoPolygon(null);
+    setAnchorPosition(null);
   }, []);
 
-  // Toggle lasso off — full reset including layer selection and results
+  // Toggle lasso off — clear results but preserve the selected layer
   const handleLassoToggle = useCallback(() => {
     setLassoIsActive(false);
-    setSelectedLassoLayerId(undefined);
     setSelectedFeatures([]);
     setLassoPolygon(null);
+    setAnchorPosition(null);
   }, []);
 
   // Activate lasso drawing and notify parent (e.g. to deactivate ruler)
@@ -120,6 +134,7 @@ export function useLassoSelection(
         setLassoIsActive(false);
         setSelectedFeatures([]);
         setLassoPolygon(null);
+        setAnchorPosition(null);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -134,6 +149,8 @@ export function useLassoSelection(
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
+    anchorPosition,
+    setAnchorPosition,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
