@@ -20,6 +20,7 @@ import { memo, useState, useRef, useEffect } from 'react';
 import { styled } from '@superset-ui/core';
 
 import type { LassoDrawMode } from './LassoOverlay';
+import LassoDropdown from './LassoDropdown';
 
 export type LassoLayer = { id: string; name: string };
 
@@ -97,151 +98,6 @@ const ControlButton = styled.button<{ $isActive?: boolean }>(
 `,
 );
 
-const DropdownPanel = styled.div(
-  ({ theme }) => `
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 200px;
-  background: ${theme.colorBgElevated};
-  border: 1px solid ${theme.colorBorderSecondary};
-  border-radius: 6px;
-  box-shadow: 0 4px 12px ${theme.colorText}1F;
-  overflow: hidden;
-`,
-);
-
-const DropdownHeader = styled.div(
-  ({ theme }) => `
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px 6px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: ${theme.colorTextSecondary};
-  border-bottom: 1px solid ${theme.colorBorderSecondary};
-`,
-);
-
-const CloseButton = styled.button(
-  ({ theme }) => `
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  color: ${theme.colorTextSecondary};
-
-  &:hover {
-    color: ${theme.colorText};
-  }
-`,
-);
-
-const DropdownItem = styled.button(
-  ({ theme }) => `
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  color: ${theme.colorText};
-  text-align: left;
-  white-space: nowrap;
-
-  &:hover {
-    background: ${theme.colorBgTextHover};
-  }
-`,
-);
-
-const ModeToggleSection = styled.div(
-  ({ theme }) => `
-  display: flex;
-  gap: 4px;
-  padding: 8px 12px;
-  border-top: 1px solid ${theme.colorBorderSecondary};
-`,
-);
-
-const ModeButton = styled.button<{ $isActive?: boolean }>(
-  ({ theme, $isActive }) => `
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  padding: 4px 8px;
-  background: ${$isActive ? theme.colorPrimaryBg : 'transparent'};
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 11px;
-  color: ${$isActive ? theme.colorPrimary : theme.colorTextSecondary};
-  white-space: nowrap;
-
-  &:hover {
-    background: ${$isActive ? theme.colorPrimaryBgHover : theme.colorBgTextHover};
-  }
-`,
-);
-
-const FreehandIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path
-      d="M2 10C4 4 6 12 8 8C10 4 12 11 14 6"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      fill="none"
-    />
-  </svg>
-);
-
-const PolygonIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path
-      d="M3 12L6 3L13 5L11 13Z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
-    <circle cx="3" cy="12" r="1.5" fill="currentColor" />
-    <circle cx="6" cy="3" r="1.5" fill="currentColor" />
-    <circle cx="13" cy="5" r="1.5" fill="currentColor" />
-    <circle cx="11" cy="13" r="1.5" fill="currentColor" />
-  </svg>
-);
-
-const RadioIcon = ({ selected }: { selected: boolean }) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <circle
-      cx="8"
-      cy="8"
-      r="6.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      fill="none"
-    />
-    {selected && <circle cx="8" cy="8" r="3.5" fill="currentColor" />}
-  </svg>
-);
-
 const HomeIcon = () => (
   <svg
     width="16"
@@ -315,7 +171,7 @@ const MapControls = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const hasMultipleLayers = lassoLayers.length > 1;
 
-  // Close dropdown on outside click — activates lasso
+  // Close dropdown on outside click — only dismisses, does not activate lasso
   useEffect(() => {
     if (!isDropdownOpen) return undefined;
     const handleOutsideClick = (e: MouseEvent) => {
@@ -324,20 +180,11 @@ const MapControls = ({
         !containerRef.current.contains(e.target as Node)
       ) {
         setIsDropdownOpen(false);
-        // Multi-layer requires a layer selected; single-layer always activates
-        if (!hasMultipleLayers || activeLassoLayerId) {
-          onLassoActivate?.();
-        }
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [
-    isDropdownOpen,
-    hasMultipleLayers,
-    activeLassoLayerId,
-    onLassoActivate,
-  ]);
+  }, [isDropdownOpen]);
 
   const handleLassoButtonClick = () => {
     if (isLassoActive) {
@@ -346,10 +193,6 @@ const MapControls = ({
     } else {
       setIsDropdownOpen(prev => !prev);
     }
-  };
-
-  const handleLayerSelect = (layerId: string) => {
-    onLassoLayerSelect?.(layerId);
   };
 
   const handleCloseDropdown = () => {
@@ -390,41 +233,15 @@ const MapControls = ({
       </ButtonGroup>
 
       {isDropdownOpen && (
-        <DropdownPanel>
-          <DropdownHeader>
-            {hasMultipleLayers ? 'Select layer' : 'Lasso mode'}
-            <CloseButton onClick={handleCloseDropdown} title="Close">
-              ✕
-            </CloseButton>
-          </DropdownHeader>
-          {hasMultipleLayers &&
-            lassoLayers.map(layer => {
-              const isSelected = layer.id === activeLassoLayerId;
-              return (
-                <DropdownItem
-                  key={layer.id}
-                  onClick={() => handleLayerSelect(layer.id)}
-                >
-                  <RadioIcon selected={isSelected} />
-                  {layer.name}
-                </DropdownItem>
-              );
-            })}
-          <ModeToggleSection>
-            <ModeButton
-              $isActive={lassoDrawMode === 'freehand'}
-              onClick={() => onLassoDrawModeChange?.('freehand')}
-            >
-              <FreehandIcon /> Freehand
-            </ModeButton>
-            <ModeButton
-              $isActive={lassoDrawMode === 'polygon'}
-              onClick={() => onLassoDrawModeChange?.('polygon')}
-            >
-              <PolygonIcon /> Point-to-point
-            </ModeButton>
-          </ModeToggleSection>
-        </DropdownPanel>
+        <LassoDropdown
+          hasMultipleLayers={hasMultipleLayers}
+          layers={lassoLayers}
+          activeLassoLayerId={activeLassoLayerId}
+          onLayerSelect={onLassoLayerSelect}
+          drawMode={lassoDrawMode}
+          onDrawModeChange={onLassoDrawModeChange}
+          onClose={handleCloseDropdown}
+        />
       )}
     </ControlsContainer>
   );

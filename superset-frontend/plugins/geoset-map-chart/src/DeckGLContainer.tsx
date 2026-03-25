@@ -382,7 +382,8 @@ export const DeckGLContainer = memo(
     const lassoIsActive = props.lassoIsActive ?? false;
     const lassoDrawMode = props.lassoDrawMode ?? 'freehand';
     const lassoPolygon = props.lassoPolygon ?? null;
-    const handleLassoComplete = props.onLassoComplete ?? (() => {});
+    const noopLassoComplete = useCallback(() => {}, []);
+    const handleLassoComplete = props.onLassoComplete ?? noopLassoComplete;
     const { layers: lassoLayers } = useLassoLayer(
       lassoIsActive,
       handleLassoComplete,

@@ -1,12 +1,13 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useLassoSelection } from '../../src/hooks/useLassoSelection';
+import type { Coordinate } from '../../src/utils/measureDistance';
 
 describe('useLassoSelection', () => {
   it('returns correct initial state', () => {
     const { result } = renderHook(() => useLassoSelection());
     expect(result.current.lassoIsActive).toBe(false);
     expect(result.current.lassoDrawMode).toBe('freehand');
-    expect(result.current.selectedLassoLayerIds).toEqual([]);
+    expect(result.current.selectedLassoLayerId).toBeUndefined();
   });
 
   it('activates lasso on handleLassoActivate', () => {
@@ -22,7 +23,7 @@ describe('useLassoSelection', () => {
     expect(onActivate).toHaveBeenCalledTimes(1);
   });
 
-  it('deactivates and clears layers on handleLassoToggle', () => {
+  it('deactivates and clears layer on handleLassoToggle', () => {
     const { result } = renderHook(() =>
       useLassoSelection({
         availableLayers: [
@@ -35,15 +36,15 @@ describe('useLassoSelection', () => {
     // Activate and verify layer is auto-selected
     act(() => result.current.handleLassoActivate());
     expect(result.current.lassoIsActive).toBe(true);
-    expect(result.current.selectedLassoLayerIds).toEqual(['1']);
+    expect(result.current.selectedLassoLayerId).toBe('1');
 
     // Toggle off — should clear everything
     act(() => result.current.handleLassoToggle());
     expect(result.current.lassoIsActive).toBe(false);
-    expect(result.current.selectedLassoLayerIds).toEqual([]);
+    expect(result.current.selectedLassoLayerId).toBeUndefined();
   });
 
-  it('deactivates without clearing layers on deactivateLasso', () => {
+  it('deactivates without clearing layer on deactivateLasso', () => {
     const { result } = renderHook(() =>
       useLassoSelection({
         availableLayers: [{ id: '1', name: 'Layer 1' }],
@@ -51,12 +52,12 @@ describe('useLassoSelection', () => {
     );
 
     act(() => result.current.handleLassoActivate());
-    expect(result.current.selectedLassoLayerIds).toEqual(['1']);
+    expect(result.current.selectedLassoLayerId).toBe('1');
 
-    // Soft deactivation — layers preserved
+    // Soft deactivation — layer preserved
     act(() => result.current.deactivateLasso());
     expect(result.current.lassoIsActive).toBe(false);
-    expect(result.current.selectedLassoLayerIds).toEqual(['1']);
+    expect(result.current.selectedLassoLayerId).toBe('1');
   });
 
   it('changes draw mode via setLassoDrawMode', () => {
@@ -65,18 +66,14 @@ describe('useLassoSelection', () => {
     expect(result.current.lassoDrawMode).toBe('polygon');
   });
 
-  it('toggles layer ids on handleLassoLayerToggle', () => {
+  it('selects a layer via handleLassoLayerSelect', () => {
     const { result } = renderHook(() => useLassoSelection());
 
-    act(() => result.current.handleLassoLayerToggle('a'));
-    expect(result.current.selectedLassoLayerIds).toEqual(['a']);
+    act(() => result.current.handleLassoLayerSelect('a'));
+    expect(result.current.selectedLassoLayerId).toBe('a');
 
-    act(() => result.current.handleLassoLayerToggle('b'));
-    expect(result.current.selectedLassoLayerIds).toEqual(['a', 'b']);
-
-    // Toggle 'a' off
-    act(() => result.current.handleLassoLayerToggle('a'));
-    expect(result.current.selectedLassoLayerIds).toEqual(['b']);
+    act(() => result.current.handleLassoLayerSelect('b'));
+    expect(result.current.selectedLassoLayerId).toBe('b');
   });
 
   it('auto-selects first layer when availableLayers provided', () => {
@@ -88,19 +85,19 @@ describe('useLassoSelection', () => {
         ],
       }),
     );
-    expect(result.current.selectedLassoLayerIds).toEqual(['x']);
+    expect(result.current.selectedLassoLayerId).toBe('x');
   });
 
-  it('does not auto-select when layers are already selected', () => {
+  it('does not auto-select when a layer is already selected', () => {
     const { result } = renderHook(() =>
       useLassoSelection({
         availableLayers: [{ id: 'x', name: 'X' }],
       }),
     );
 
-    // Manually toggle to 'y', then re-render with new available layers
-    act(() => result.current.handleLassoLayerToggle('y'));
-    expect(result.current.selectedLassoLayerIds).toContain('y');
+    // Manually select 'y', then verify auto-select did not override
+    act(() => result.current.handleLassoLayerSelect('y'));
+    expect(result.current.selectedLassoLayerId).toBe('y');
   });
 
   it('calls onPolygonComplete when handleLassoComplete is called', () => {
@@ -108,7 +105,7 @@ describe('useLassoSelection', () => {
     const { result } = renderHook(() =>
       useLassoSelection({ onPolygonComplete }),
     );
-    const polygon = [
+    const polygon: Coordinate[] = [
       [0, 0],
       [1, 0],
       [1, 1],
@@ -168,7 +165,7 @@ describe('useLassoSelection', () => {
 
     rerender({ cb: second });
 
-    const polygon = [[0, 0]];
+    const polygon: Coordinate[] = [[0, 0]];
     act(() => result.current.handleLassoComplete(polygon));
 
     expect(first).not.toHaveBeenCalled();

@@ -39,8 +39,6 @@ export type UseLassoSelectionResult = {
   selectedFeatures: GeoJsonFeature[];
   setSelectedFeatures: (features: GeoJsonFeature[]) => void;
   lassoPolygon: Coordinate[] | null;
-  anchorPosition: { x: number; y: number } | null;
-  setAnchorPosition: (pos: { x: number; y: number } | null) => void;
   clearSelection: () => void;
   handleLassoToggle: () => void;
   handleLassoActivate: () => void;
@@ -69,10 +67,6 @@ export function useLassoSelection(
     [],
   );
   const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
-  const [anchorPosition, setAnchorPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
 
   // Auto-select the first layer when available layers load and none is selected.
   const availableLayerIds = availableLayers.map(l => l.id).join(',');
@@ -90,7 +84,6 @@ export function useLassoSelection(
   const clearSelection = useCallback(() => {
     setSelectedFeatures([]);
     setLassoPolygon(null);
-    setAnchorPosition(null);
   }, []);
 
   // Toggle lasso off — full reset including layer selection and results
@@ -98,7 +91,6 @@ export function useLassoSelection(
     setLassoIsActive(false);
     setSelectedLassoLayerId(undefined);
     setSelectedFeatures([]);
-    setAnchorPosition(null);
     setLassoPolygon(null);
   }, []);
 
@@ -128,7 +120,6 @@ export function useLassoSelection(
         setLassoIsActive(false);
         setSelectedFeatures([]);
         setLassoPolygon(null);
-        setAnchorPosition(null);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -143,8 +134,6 @@ export function useLassoSelection(
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
-    anchorPosition,
-    setAnchorPosition,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,

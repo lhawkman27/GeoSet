@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   EditableGeoJsonLayer,
   DrawPolygonByDraggingMode,
@@ -27,6 +27,7 @@ import { PathLayer } from '@deck.gl/layers';
 import { SolidPolygonLayer } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import type { Coordinate } from '../utils/measureDistance';
+import { closeRing } from '../utils/lassoSelection';
 
 export type LassoDrawMode = 'freehand' | 'polygon';
 
@@ -66,6 +67,10 @@ export function useLassoLayer(
     () => DRAW_MODES[drawMode],
   );
 
+  // Use a ref so handleEdit stays stable regardless of caller memoization
+  const onPolygonCompleteRef = useRef(onPolygonComplete);
+  onPolygonCompleteRef.current = onPolygonComplete;
+
   // Reset when lasso is activated or deactivated
   useEffect(() => {
     if (isActive) {
@@ -89,10 +94,12 @@ export function useLassoLayer(
           updatedData.features[updatedData.features.length - 1];
         const coords: number[][] = lastFeature.geometry.coordinates[0];
         setMode(() => ViewMode);
-        onPolygonComplete(coords.map(c => [c[0], c[1]] as Coordinate));
+        onPolygonCompleteRef.current(
+          coords.map(c => [c[0], c[1]] as Coordinate),
+        );
       }
     },
-    [onPolygonComplete],
+    [],
   );
 
   // Editable layer for drawing phase
@@ -123,13 +130,7 @@ export function useLassoLayer(
   const completedLayers = useMemo(() => {
     if (!completedPolygon || completedPolygon.length < 3) return [];
 
-    // Close the ring if needed
-    const ring = [...completedPolygon];
-    const first = ring[0];
-    const last = ring[ring.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      ring.push(first);
-    }
+    const ring = closeRing(completedPolygon);
 
     return [
       new SolidPolygonLayer({

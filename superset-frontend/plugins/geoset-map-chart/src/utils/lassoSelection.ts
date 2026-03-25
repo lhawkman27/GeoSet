@@ -62,7 +62,7 @@ export function getRepresentativePoint(
 /**
  * Ensure a polygon coordinate ring is closed (first point == last point).
  */
-function closeRing(coords: Coordinate[]): Coordinate[] {
+export function closeRing(coords: Coordinate[]): Coordinate[] {
   if (coords.length < 3) return coords;
   const first = coords[0];
   const last = coords[coords.length - 1];
