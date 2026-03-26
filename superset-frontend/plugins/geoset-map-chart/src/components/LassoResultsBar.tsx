@@ -239,9 +239,6 @@ const LassoResultsBar = ({
           >
             <DownloadIcon /> Export to Excel
           </MenuItem>
-          <MenuItem $disabled title="Coming soon">
-            <DownloadIcon /> Download as image
-          </MenuItem>
         </MenuPanel>
       )}
     </BarContainer>

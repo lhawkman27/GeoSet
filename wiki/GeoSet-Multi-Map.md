@@ -40,6 +40,7 @@ Each layer has a **settings popover** (gear icon) with per-layer options:
 | **Collapse Legend** | Start with the legend entry collapsed in the map legend. |
 | **Hidden by Default** | Hide this layer when the map first loads. Toggle it on from the legend. |
 | **Lazy Loading** | Load this layer in the background after other layers have loaded. Lazy layers are fetched in small batches so they don't compete with the initial render. Auto Zoom is automatically disabled for lazy-loaded layers. |
+| **Lasso Selectable** | Include this layer in the lasso tool's layer selection dropdown. Enabled by default. Disable it to hide layers that shouldn't be lasso-selectable (e.g., boundary or reference layers). |
 
 > **Note:** If Enable Static Viewport is off, the viewport selection control is hidden — the map will use the default viewport.
 

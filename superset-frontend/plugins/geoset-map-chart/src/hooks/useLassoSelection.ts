@@ -25,8 +25,6 @@ import type { GeoJsonFeature } from '../types';
 export type UseLassoSelectionOptions = {
   /** Available layers for lasso selection. Omit or pass empty for single-layer. */
   availableLayers?: LassoLayer[];
-  /** Preferred default layer name. Falls back to first layer if not found. */
-  defaultLayerName?: string;
   /** Called when lasso polygon drawing completes. */
   onPolygonComplete?: (polygon: Coordinate[]) => void;
   /** Called when lasso is activated (useful for deactivating other modes like ruler). */
@@ -54,7 +52,7 @@ export type UseLassoSelectionResult = {
 export function useLassoSelection(
   options: UseLassoSelectionOptions = {},
 ): UseLassoSelectionResult {
-  const { availableLayers = [], defaultLayerName } = options;
+  const { availableLayers = [] } = options;
 
   // Use refs for callbacks to avoid stale closures without re-triggering effects
   const onPolygonCompleteRef = useRef(options.onPolygonComplete);
@@ -76,16 +74,11 @@ export function useLassoSelection(
     y: number;
   } | null>(null);
 
-  // Auto-select the preferred layer (by name), falling back to first layer.
+  // Auto-select the first available layer when none is selected.
   const availableLayerIds = availableLayers.map(l => l.id).join(',');
   useEffect(() => {
     if (availableLayers.length > 0 && !selectedLassoLayerId) {
-      const preferred = defaultLayerName
-        ? availableLayers.find(
-            l => l.name.toLowerCase() === defaultLayerName.toLowerCase(),
-          )
-        : undefined;
-      setSelectedLassoLayerId(preferred?.id ?? availableLayers[0].id);
+      setSelectedLassoLayerId(availableLayers[0].id);
     }
   }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
 

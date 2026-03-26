@@ -140,6 +140,7 @@ type SubsliceLayerEntry = {
   zoomSliderOptions: { minZoom: number; maxZoom: number };
   initiallyHidden: boolean; // Whether this layer starts hidden
   lazyLoading: boolean; // Whether this layer is configured for lazy loading
+  lassoSelectable: boolean; // Whether this layer appears in the lasso dropdown
 };
 
 interface ClickedFeatureWithColumns extends ClickedFeatureInfo {
@@ -150,6 +151,7 @@ const DeckMulti = (props: DeckMultiProps) => {
   const containerRef = useRef<DeckGLContainerHandle>(null);
   // Ref to track measure state for use in callbacks without creating dependencies
   const measureActiveRef = useRef(false);
+  const lassoIsActiveRef = useRef(false);
   // Generation counter to cancel stale lazy-loading chains
   const loadGenerationRef = useRef(0);
   // Store initial autozoom viewport to prevent reset on category toggle
@@ -172,7 +174,7 @@ const DeckMulti = (props: DeckMultiProps) => {
   // Don't show popup when measurement mode is active (uses ref to avoid dependency issues)
   const handleFeatureClick = useCallback(
     (info: any, featureInfoColumnNames?: string[]) => {
-      if (measureActiveRef.current) return;
+      if (measureActiveRef.current || lassoIsActiveRef.current) return;
       if (info?.object?.properties) {
         setClickedFeature({
           properties: info.object.properties,
@@ -504,6 +506,7 @@ const DeckMulti = (props: DeckMultiProps) => {
                 zoomSliderOptions: newLayerStateOptions,
                 initiallyHidden: sliceInitiallyHidden,
                 lazyLoading: sliceLazyLoading,
+                lassoSelectable: sliceConfig?.lassoSelectable ?? true,
               };
             });
           })
@@ -632,6 +635,7 @@ const DeckMulti = (props: DeckMultiProps) => {
           ...layer,
           autozoom: resolveLayerAutozoom(config),
           lazyLoading: config?.lazyLoading ?? false,
+          lassoSelectable: config?.lassoSelectable ?? true,
         };
       });
     });
@@ -883,15 +887,17 @@ const DeckMulti = (props: DeckMultiProps) => {
     [sortedLayers, layerVisibility],
   );
 
-  // Layer list for lasso layer picker dropdown
+  // Layer list for lasso layer picker dropdown — only lasso-selectable layers
   const lassoLayers = useMemo(
     () =>
-      sortedLayers.map(entry => ({
-        id: String(entry.sliceId),
-        name:
-          (entry.legendEntry.sliceName as string | undefined) ||
-          entry.legendEntry.legendName,
-      })),
+      sortedLayers
+        .filter(entry => entry.lassoSelectable !== false)
+        .map(entry => ({
+          id: String(entry.sliceId),
+          name:
+            (entry.legendEntry.sliceName as string | undefined) ||
+            entry.legendEntry.legendName,
+        })),
     [sortedLayers],
   );
 
@@ -1032,7 +1038,6 @@ const DeckMulti = (props: DeckMultiProps) => {
     deactivateLasso,
   } = useLassoSelection({
     availableLayers: lassoLayers,
-    defaultLayerName: 'All Program Offices',
     onPolygonComplete: polygon => {
       const layerFeatureMap: Record<string, GeoJsonFeature[]> = {};
       sortedLayers.forEach(entry => {
@@ -1084,6 +1089,9 @@ const DeckMulti = (props: DeckMultiProps) => {
       });
     },
   });
+
+  // Keep ref in sync with lasso state for use in memoized callbacks
+  lassoIsActiveRef.current = lassoIsActive;
 
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {

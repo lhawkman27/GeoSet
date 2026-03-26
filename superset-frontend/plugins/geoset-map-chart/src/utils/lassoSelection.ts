@@ -74,8 +74,8 @@ export function closeRing(coords: Coordinate[]): Coordinate[] {
  * Test whether a feature intersects the lasso polygon.
  *
  * - Point / MultiPoint: direct point-in-polygon test (fast)
- * - Polygon / LineString / etc.: boolean intersects test —
- *   selected if any part of the geometry overlaps the lasso area
+ * - Polygon / MultiPolygon: selected if >= 50% area overlap
+ * - LineString / MultiLineString: selected if any vertex is inside
  */
 function isFeatureInLasso(
   feature: GeoJsonFeature,
@@ -107,8 +107,19 @@ function isFeatureInLasso(
         if (!overlap) return false;
         return area(overlap) / featureArea >= POLYGON_OVERLAP_THRESHOLD;
       }
+      case 'LineString': {
+        // Selected if any vertex of the line is inside the lasso
+        return (geometry.coordinates as [number, number][]).some(pt =>
+          booleanPointInPolygon(turfPoint(pt), lassoPoly),
+        );
+      }
+      case 'MultiLineString': {
+        return (geometry.coordinates as [number, number][][]).some(line =>
+          line.some(pt => booleanPointInPolygon(turfPoint(pt), lassoPoly)),
+        );
+      }
       default:
-        // LineString, MultiLineString, GeometryCollection — skip
+        // GeometryCollection, etc. — skip
         return false;
     }
   } catch {
