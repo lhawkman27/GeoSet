@@ -16,26 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef as useReactRef, type RefObject } from 'react';
 
 /**
  * Calls `onClickOutside` when a mousedown event occurs outside the given ref element.
  * The listener is only attached when `isActive` is true.
+ *
+ * The callback is stored in a ref internally, so callers do not need to
+ * stabilise it with `useCallback` — an unstable reference will not cause
+ * the listener to be re-attached on every render.
  */
 export function useClickOutside(
   ref: RefObject<HTMLElement | null>,
   onClickOutside: () => void,
   isActive: boolean,
 ): void {
+  const callbackRef = useReactRef(onClickOutside);
+  callbackRef.current = onClickOutside;
+
   useEffect(() => {
     if (!isActive) return undefined;
 
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClickOutside();
+        callbackRef.current();
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [isActive, ref, onClickOutside]);
+  }, [isActive, ref, callbackRef]);
 }

@@ -49,7 +49,10 @@ import type { CategoryEntry, GeoJsonFeature, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import { useLassoSelection } from '../hooks/useLassoSelection';
-import { buildLassoResult } from '../utils/lassoSelection';
+import {
+  buildLassoResult,
+  normalizeCategoryKey,
+} from '../utils/lassoSelection';
 import LassoResultsBar from '../components/LassoResultsBar';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
@@ -1047,13 +1050,15 @@ const DeckMulti = (props: DeckMultiProps) => {
         (entry.transformedProps.payload?.data?.features as GeoJsonFeature[]) ||
         [];
 
-      // Build hidden-category set from the slice's category visibility map
+      // Build hidden-category set from the slice's category visibility map.
+      // Keys in categoryVisibility are display labels (mixed case), so we
+      // normalise them to match the lowercased keys used by buildLassoResult.
       const sliceVisibility = categoryVisibility[String(entry.sliceId)];
       const hiddenCategoryKeys = sliceVisibility
         ? new Set(
             Object.entries(sliceVisibility)
               .filter(([, v]) => v === false)
-              .map(([k]) => k),
+              .map(([k]) => normalizeCategoryKey(k)),
           )
         : undefined;
 

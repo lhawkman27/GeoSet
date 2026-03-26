@@ -20,7 +20,7 @@ import { memo } from 'react';
 import { styled } from '@superset-ui/core';
 import type { LassoDrawMode } from './LassoOverlay';
 import type { LassoLayer } from './MapControls';
-import { FreehandIcon, PolygonIcon, RadioIcon } from './icons';
+import { CloseIcon, FreehandIcon, PolygonIcon, RadioIcon } from './icons';
 
 export type LassoDropdownProps = {
   hasMultipleLayers: boolean;
@@ -147,7 +147,7 @@ const LassoDropdown = ({
     <DropdownHeader>
       {hasMultipleLayers ? 'Select layer' : 'Lasso mode'}
       <CloseButton onClick={onClose} title="Close">
-        ✕
+        <CloseIcon />
       </CloseButton>
     </DropdownHeader>
     {hasMultipleLayers &&

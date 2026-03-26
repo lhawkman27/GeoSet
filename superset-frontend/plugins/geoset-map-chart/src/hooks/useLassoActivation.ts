@@ -61,7 +61,12 @@ export function useLassoActivation(
     if (availableLayers.length > 0 && !selectedLassoLayerId) {
       setSelectedLassoLayerId(availableLayers[0].id);
     }
-  }, [availableLayerIds, resetCount]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Deps use `availableLayerIds` (a derived string) instead of the `availableLayers`
+    // array to avoid re-running when the array reference changes but contents don't.
+    // `selectedLassoLayerId` is read inside but intentionally excluded — including it
+    // would prevent re-selection after a reset clears it.
+  }, [availableLayerIds, resetCount]);
 
   const resetActivation = useCallback(() => {
     setLassoIsActive(false);

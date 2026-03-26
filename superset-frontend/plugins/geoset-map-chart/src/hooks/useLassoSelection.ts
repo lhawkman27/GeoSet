@@ -67,25 +67,25 @@ export function useLassoSelection(
     onPolygonComplete: options.onPolygonComplete,
   });
 
-  // Toggle lasso off — clear both activation and results state
-  const handleLassoToggle = useCallback(() => {
+  // Full reset: deactivate lasso and clear any selection results
+  const fullReset = useCallback(() => {
     activation.resetActivation();
     results.clearSelection();
   }, [activation.resetActivation, results.clearSelection]);
+
+  // Toggle lasso off — clear both activation and results state
+  const handleLassoToggle = fullReset;
 
   // Escape key exits lasso mode
   useEffect(() => {
     if (!activation.lassoIsActive) return undefined;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        activation.resetActivation();
-        results.clearSelection();
-      }
+      if (e.key === 'Escape') fullReset();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [activation.lassoIsActive, activation.resetActivation, results.clearSelection]);
+  }, [activation.lassoIsActive, fullReset]);
 
   return {
     // Activation state
