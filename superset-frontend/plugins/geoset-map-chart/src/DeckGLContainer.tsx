@@ -117,6 +117,20 @@ const MeasureTooltip = styled.div`
   }
 `;
 
+const LassoHintTooltip = styled.div`
+  position: absolute;
+  background: ${({ theme }) => theme.colorBgElevated};
+  color: ${({ theme }) => theme.colorTextSecondary};
+  border: 1px solid ${({ theme }) => theme.colorBorder};
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+  transform: translate(16px, 16px);
+`;
+
 // Custom ruler cursor as a data URI SVG
 // The cursor is a small ruler icon with a crosshair at the click point (top-left)
 // Uses white fill with black stroke for visibility on any background
@@ -197,6 +211,10 @@ export const DeckGLContainer = memo(
     const currentViewport = useRef<Viewport>(props.viewport);
     const pendingSaveTime = useRef<number | null>(null);
     const [tooltip, setTooltip] = useState<TooltipProps['tooltip']>(null);
+    const [lassoMousePos, setLassoMousePos] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
     const [viewState, setViewState] = useState(() => props.viewport);
     const [mapReady, setMapReady] = useState(false);
 
@@ -597,6 +615,7 @@ export const DeckGLContainer = memo(
     // Clear tooltip when mouse leaves the map container
     const handleMouseLeave = useCallback(() => {
       setTooltip(null);
+      setLassoMousePos(null);
     }, []);
 
     // Track drag state for measurement - use refs to avoid stale closure issues
@@ -648,9 +667,18 @@ export const DeckGLContainer = memo(
       [measureState.isActive],
     );
 
-    // Handle mouse move for drag-to-measure
+    // Handle mouse move for drag-to-measure and lasso hint tooltip
     const handleMouseMove = useCallback(
       (e: React.MouseEvent) => {
+        // Track cursor for lasso hint tooltip
+        if (lassoIsActive) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setLassoMousePos({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+          });
+        }
+
         if (!measureState.isActive || !mouseDownPosRef.current) return;
 
         const map = mapRef.current?.getMap();
@@ -678,7 +706,7 @@ export const DeckGLContainer = memo(
         const lngLat = map.unproject([x, y]);
         props.onMeasureDrag?.([lngLat.lng, lngLat.lat]);
       },
-      [measureState.isActive, props.onMeasureDragStart, props.onMeasureDrag],
+      [measureState.isActive, lassoIsActive, props.onMeasureDragStart, props.onMeasureDrag],
     );
 
     // Handle mouse up for drag-to-measure
@@ -798,6 +826,15 @@ export const DeckGLContainer = memo(
           >
             {distance}
           </MeasureTooltip>
+        )}
+        {lassoIsActive && lassoMousePos && !selectedFeaturesArr.length && (
+          <LassoHintTooltip
+            style={{ left: lassoMousePos.x, top: lassoMousePos.y }}
+          >
+            {lassoDrawMode === 'polygon'
+              ? 'Double-click or click first point to close'
+              : 'Click and drag to draw selection'}
+          </LassoHintTooltip>
         )}
         <ScaleControlContainer>
           <ScaleBar $width={scaleInfo.width}>{scaleInfo.label}</ScaleBar>
