@@ -49,6 +49,16 @@ const DRAW_MODES = {
   polygon: DrawPolygonMode,
 };
 
+// Shared color constants for lasso fill/stroke across drawing and completed layers
+const LASSO_FILL_COLOR: [number, number, number, number] = [66, 133, 244, 30];
+const LASSO_TENTATIVE_FILL_COLOR: [number, number, number, number] = [66, 133, 244, 15];
+const LASSO_LINE_COLOR: [number, number, number, number] = [40, 40, 40, 220];
+const LASSO_TENTATIVE_LINE_COLOR: [number, number, number, number] = [40, 40, 40, 200];
+
+// Delay before enabling draw mode after activation, so the dropdown-close click
+// doesn't register as the first vertex
+const ACTIVATION_DELAY_MS = 300;
+
 const DASH_EXTENSION = new PathStyleExtension({ dash: true });
 const DASH_PROPS = {
   getDashArray: [8, 4],
@@ -86,7 +96,7 @@ export function useLassoLayer(
       setMode(() => ViewMode);
       const timer = setTimeout(() => {
         setMode(() => DRAW_MODES[drawMode]);
-      }, 300);
+      }, ACTIVATION_DELAY_MS);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -136,12 +146,12 @@ export function useLassoLayer(
         selectedFeatureIndexes: [],
         onEdit: handleEdit,
 
-        getFillColor: [66, 133, 244, 30],
-        getLineColor: [40, 40, 40, 220],
+        getFillColor: LASSO_FILL_COLOR,
+        getLineColor: LASSO_LINE_COLOR,
         lineWidthMinPixels: 2,
 
-        getTentativeFillColor: [66, 133, 244, 15],
-        getTentativeLineColor: [40, 40, 40, 200],
+        getTentativeFillColor: LASSO_TENTATIVE_FILL_COLOR,
+        getTentativeLineColor: LASSO_TENTATIVE_LINE_COLOR,
 
         // Dashed outline on both the main geojson and guides (tentative) sub-layers
         _subLayerProps: {
@@ -175,14 +185,14 @@ export function useLassoLayer(
         id: 'lasso-completed-fill',
         data: [{ polygon: ring }],
         getPolygon: (d: any) => d.polygon,
-        getFillColor: [66, 133, 244, 30],
+        getFillColor: LASSO_FILL_COLOR,
         pickable: false,
       }),
       new PathLayer({
         id: 'lasso-completed-outline',
         data: [{ path: ring }],
         getPath: (d: any) => d.path,
-        getColor: [40, 40, 40, 220],
+        getColor: LASSO_LINE_COLOR,
         widthMinPixels: 2,
         ...DASH_PROPS,
         pickable: false,

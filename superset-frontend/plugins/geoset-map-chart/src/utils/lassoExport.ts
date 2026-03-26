@@ -94,6 +94,9 @@ export function exportToCSV(
   triggerDownload(blob, filename ?? `lasso-selection-${timestamp()}.csv`);
 }
 
+// Cache the dynamic import so subsequent exports don't re-fetch the library
+let xlsxModule: typeof import('xlsx') | null = null;
+
 /**
  * Download selected features as an Excel (.xlsx) file.
  * xlsx is lazy-loaded to avoid adding ~200KB to the initial bundle.
@@ -102,7 +105,10 @@ export async function exportToExcel(
   features: GeoJsonFeature[],
   filename?: string,
 ): Promise<void> {
-  const XLSX = await import('xlsx');
+  if (!xlsxModule) {
+    xlsxModule = await import('xlsx');
+  }
+  const XLSX = xlsxModule;
   const { headers, rows } = featuresToRows(features);
   const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
   const wb = XLSX.utils.book_new();

@@ -62,7 +62,9 @@ export function getRepresentativePoint(
       try {
         const c = centroid(feature as any);
         return c.geometry.coordinates as [number, number];
-      } catch {
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('getRepresentativePoint: centroid failed', err);
         return null;
       }
     }
@@ -132,7 +134,9 @@ function isFeatureInLasso(
         // GeometryCollection, etc. — skip
         return false;
     }
-  } catch {
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('isFeatureInLasso: geometry test failed', err);
     return false;
   }
 }

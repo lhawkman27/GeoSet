@@ -16,11 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import type { LassoDrawMode } from '../components/LassoOverlay';
 import type { Coordinate } from '../utils/measureDistance';
 import type { LassoLayer } from '../components/MapControls';
 import type { GeoJsonFeature } from '../types';
+import { useLassoActivation } from './useLassoActivation';
+import { useLassoResults } from './useLassoResults';
 
 export type UseLassoSelectionOptions = {
   /** Available layers for lasso selection. Omit or pass empty for single-layer. */
@@ -49,108 +51,62 @@ export type UseLassoSelectionResult = {
   deactivateLasso: () => void;
 };
 
+/**
+ * Composes `useLassoActivation` and `useLassoResults` into a single hook
+ * managing the full lasso lifecycle: activation, drawing, selection, and reset.
+ */
 export function useLassoSelection(
   options: UseLassoSelectionOptions = {},
 ): UseLassoSelectionResult {
-  const { availableLayers = [] } = options;
+  const activation = useLassoActivation({
+    availableLayers: options.availableLayers,
+    onActivate: options.onActivate,
+  });
 
-  // Use refs for callbacks to avoid stale closures without re-triggering effects
-  const onPolygonCompleteRef = useRef(options.onPolygonComplete);
-  onPolygonCompleteRef.current = options.onPolygonComplete;
-  const onActivateRef = useRef(options.onActivate);
-  onActivateRef.current = options.onActivate;
+  const results = useLassoResults({
+    onPolygonComplete: options.onPolygonComplete,
+  });
 
-  const [lassoIsActive, setLassoIsActive] = useState(false);
-  const [lassoDrawMode, setLassoDrawMode] = useState<LassoDrawMode>('freehand');
-  const [selectedLassoLayerId, setSelectedLassoLayerId] = useState<
-    string | undefined
-  >();
-  const [selectedFeatures, setSelectedFeatures] = useState<GeoJsonFeature[]>(
-    [],
-  );
-  const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
-  const [anchorPosition, setAnchorPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // Auto-select the first available layer when none is selected.
-  const availableLayerIds = availableLayers.map(l => l.id).join(',');
-  useEffect(() => {
-    if (availableLayers.length > 0 && !selectedLassoLayerId) {
-      setSelectedLassoLayerId(availableLayers[0].id);
-    }
-  }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const resetLassoState = useCallback(() => {
-    setLassoIsActive(false);
-    setSelectedFeatures([]);
-    setLassoPolygon(null);
-    setAnchorPosition(null);
-    setSelectedLassoLayerId(undefined);
-  }, []);
-
-  // Deactivate lasso without clearing layer selections (soft deactivation for mode switching)
-  const deactivateLasso = useCallback(() => {
-    setLassoIsActive(false);
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setSelectedFeatures([]);
-    setLassoPolygon(null);
-    setAnchorPosition(null);
-  }, []);
-
-  // Toggle lasso off — clear everything including selected layer
+  // Toggle lasso off — clear both activation and results state
   const handleLassoToggle = useCallback(() => {
-    resetLassoState();
-  }, [resetLassoState]);
-
-  // Activate lasso drawing and notify parent (e.g. to deactivate ruler)
-  const handleLassoActivate = useCallback(() => {
-    onActivateRef.current?.();
-    setLassoIsActive(true);
-  }, []);
-
-  // Store completed polygon and forward to consumer
-  const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
-    setLassoPolygon(polygon);
-    onPolygonCompleteRef.current?.(polygon);
-  }, []);
-
-  // Select a single layer for lasso
-  const handleLassoLayerSelect = useCallback((layerId: string) => {
-    setSelectedLassoLayerId(layerId);
-  }, []);
+    activation.resetActivation();
+    results.clearSelection();
+  }, [activation.resetActivation, results.clearSelection]);
 
   // Escape key exits lasso mode
   useEffect(() => {
-    if (!lassoIsActive) return undefined;
+    if (!activation.lassoIsActive) return undefined;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        resetLassoState();
+        activation.resetActivation();
+        results.clearSelection();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [lassoIsActive, resetLassoState]);
+  }, [activation.lassoIsActive, activation.resetActivation, results.clearSelection]);
 
   return {
-    lassoIsActive,
-    lassoDrawMode,
-    setLassoDrawMode,
-    selectedLassoLayerId,
-    selectedFeatures,
-    setSelectedFeatures,
-    lassoPolygon,
-    anchorPosition,
-    setAnchorPosition,
-    clearSelection,
+    // Activation state
+    lassoIsActive: activation.lassoIsActive,
+    lassoDrawMode: activation.lassoDrawMode,
+    setLassoDrawMode: activation.setLassoDrawMode,
+    selectedLassoLayerId: activation.selectedLassoLayerId,
+    handleLassoActivate: activation.handleLassoActivate,
+    handleLassoLayerSelect: activation.handleLassoLayerSelect,
+    deactivateLasso: activation.deactivateLasso,
+
+    // Results state
+    selectedFeatures: results.selectedFeatures,
+    setSelectedFeatures: results.setSelectedFeatures,
+    lassoPolygon: results.lassoPolygon,
+    anchorPosition: results.anchorPosition,
+    setAnchorPosition: results.setAnchorPosition,
+    clearSelection: results.clearSelection,
+    handleLassoComplete: results.handleLassoComplete,
+
+    // Combined
     handleLassoToggle,
-    handleLassoActivate,
-    handleLassoComplete,
-    handleLassoLayerSelect,
-    deactivateLasso,
   };
 }

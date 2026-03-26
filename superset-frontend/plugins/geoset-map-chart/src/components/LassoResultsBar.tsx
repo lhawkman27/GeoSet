@@ -16,10 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useCallback, useEffect, useState, useRef } from 'react';
 import { styled } from '@superset-ui/core';
 import type { GeoJsonFeature } from '../types';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
+import { KebabIcon, CloseIcon, DownloadIcon } from './icons';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 export interface LassoResultsBarProps {
   features: GeoJsonFeature[];
@@ -131,44 +133,6 @@ const MenuItem = styled.button<{ $disabled?: boolean }>(
 `,
 );
 
-const KebabIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-    <circle cx="8" cy="3" r="1.5" />
-    <circle cx="8" cy="8" r="1.5" />
-    <circle cx="8" cy="13" r="1.5" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-  >
-    <line x1="4" y1="4" x2="12" y2="12" />
-    <line x1="12" y1="4" x2="4" y2="12" />
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M8 2v8M4 7l4 4 4-4M2 13h12" />
-  </svg>
-);
-
 const LassoResultsBar = ({
   features,
   onClear,
@@ -178,7 +142,6 @@ const LassoResultsBar = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(true);
-
   useEffect(
     () => () => {
       mountedRef.current = false;
@@ -186,19 +149,8 @@ const LassoResultsBar = ({
     [],
   );
 
-  useEffect(() => {
-    if (!isMenuOpen) return undefined;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isMenuOpen]);
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+  useClickOutside(containerRef, closeMenu, isMenuOpen);
 
   if (count === 0) return null;
 

@@ -38,6 +38,33 @@ function makeLine(coords: [number, number][]): GeoJsonFeature {
   };
 }
 
+function makeMultiLine(lines: [number, number][][]): GeoJsonFeature {
+  return {
+    type: 'Feature',
+    geometry: { type: 'MultiLineString', coordinates: lines },
+    properties: {},
+  };
+}
+
+function makePolygon(ring: [number, number][]): GeoJsonFeature {
+  return {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [ring] },
+    properties: {},
+  };
+}
+
+function makeMultiPolygon(rings: [number, number][][]): GeoJsonFeature {
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'MultiPolygon',
+      coordinates: rings.map(r => [r]),
+    },
+    properties: {},
+  };
+}
+
 describe('closeRing', () => {
   it('returns input unchanged if already closed', () => {
     const ring: Coordinate[] = [
@@ -136,6 +163,77 @@ describe('filterFeaturesInLasso', () => {
       [20, 20],
     ]);
     const result = filterFeaturesInLasso([line], LASSO_SQUARE);
+    expect(result).toEqual([]);
+  });
+
+  it('selects Polygon features with >= 50% overlap', () => {
+    // Small polygon fully inside the lasso square
+    const inside = makePolygon([
+      [-0.5, -0.5],
+      [0.5, -0.5],
+      [0.5, 0.5],
+      [-0.5, 0.5],
+      [-0.5, -0.5],
+    ]);
+    const result = filterFeaturesInLasso([inside], LASSO_SQUARE);
+    expect(result).toEqual([inside]);
+  });
+
+  it('rejects Polygon features with < 50% overlap', () => {
+    // Polygon mostly outside: only a small sliver overlaps the lasso
+    const mostlyOutside = makePolygon([
+      [0.5, 0.5],
+      [5, 0.5],
+      [5, 5],
+      [0.5, 5],
+      [0.5, 0.5],
+    ]);
+    const result = filterFeaturesInLasso([mostlyOutside], LASSO_SQUARE);
+    expect(result).toEqual([]);
+  });
+
+  it('selects MultiPolygon features with sufficient overlap', () => {
+    // One ring fully inside the lasso
+    const mp = makeMultiPolygon([
+      [
+        [-0.5, -0.5],
+        [0.5, -0.5],
+        [0.5, 0.5],
+        [-0.5, 0.5],
+        [-0.5, -0.5],
+      ],
+    ]);
+    const result = filterFeaturesInLasso([mp], LASSO_SQUARE);
+    expect(result).toEqual([mp]);
+  });
+
+  it('selects MultiLineString features if any vertex is inside', () => {
+    const ml = makeMultiLine([
+      [
+        [10, 10],
+        [20, 20],
+      ],
+      [
+        [0, 0],
+        [10, 10],
+      ],
+    ]);
+    const result = filterFeaturesInLasso([ml], LASSO_SQUARE);
+    expect(result).toEqual([ml]);
+  });
+
+  it('rejects MultiLineString features if no vertex is inside', () => {
+    const ml = makeMultiLine([
+      [
+        [10, 10],
+        [20, 20],
+      ],
+      [
+        [30, 30],
+        [40, 40],
+      ],
+    ]);
+    const result = filterFeaturesInLasso([ml], LASSO_SQUARE);
     expect(result).toEqual([]);
   });
 

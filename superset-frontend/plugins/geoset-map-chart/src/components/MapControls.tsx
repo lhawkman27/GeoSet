@@ -16,11 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo, useState, useRef, useEffect } from 'react';
+import { memo, useCallback, useState, useRef } from 'react';
 import { styled } from '@superset-ui/core';
 
 import type { LassoDrawMode } from './LassoOverlay';
 import LassoDropdown from './LassoDropdown';
+import { HomeIcon, RulerIcon, LassoIcon } from './icons';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 export type LassoLayer = { id: string; name: string };
 
@@ -98,59 +100,6 @@ const ControlButton = styled.button<{ $isActive?: boolean }>(
 `,
 );
 
-const HomeIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
-  </svg>
-);
-
-const RulerIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" />
-    <path d="m14.5 12.5 2-2" />
-    <path d="m11.5 9.5 2-2" />
-    <path d="m8.5 6.5 2-2" />
-    <path d="m17.5 15.5 2-2" />
-  </svg>
-);
-
-const LassoIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-    {/* Lasso rope loop — open at bottom-right leading into cursor */}
-    <path
-      d="M 15 13 C 22 10 23 4 17 1 C 12 0 5 1 2 6 C 0 11 4 15 9 15"
-      stroke="currentColor"
-      strokeWidth="2"
-      fill="none"
-      strokeLinecap="round"
-    />
-    {/* Solid cursor arrow pointing lower-right */}
-    <path
-      d="M11 15 L11 22 L13.5 19.5 L15.5 22.5 L17 21.5 L15 18.5 L18.5 18.5 Z"
-      fill="currentColor"
-    />
-  </svg>
-);
-
 const MapControls = ({
   onZoomIn,
   onZoomOut,
@@ -171,23 +120,14 @@ const MapControls = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const hasMultipleLayers = lassoLayers.length > 1;
 
-  // Close dropdown on outside click — activates lasso if a layer is selected
-  useEffect(() => {
-    if (!isDropdownOpen) return undefined;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-        if (!hasMultipleLayers || activeLassoLayerId) {
-          onLassoActivate?.();
-        }
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isDropdownOpen, hasMultipleLayers, activeLassoLayerId, onLassoActivate]);
+  const closeAndActivate = useCallback(() => {
+    setIsDropdownOpen(false);
+    if (!hasMultipleLayers || activeLassoLayerId) {
+      onLassoActivate?.();
+    }
+  }, [hasMultipleLayers, activeLassoLayerId, onLassoActivate]);
+
+  useClickOutside(containerRef, closeAndActivate, isDropdownOpen);
 
   const handleLassoButtonClick = () => {
     if (isLassoActive) {
@@ -195,13 +135,6 @@ const MapControls = ({
       setIsDropdownOpen(false);
     } else {
       setIsDropdownOpen(prev => !prev);
-    }
-  };
-
-  const handleCloseDropdown = () => {
-    setIsDropdownOpen(false);
-    if (!hasMultipleLayers || activeLassoLayerId) {
-      onLassoActivate?.();
     }
   };
 
@@ -243,7 +176,7 @@ const MapControls = ({
           onLayerSelect={onLassoLayerSelect}
           drawMode={lassoDrawMode}
           onDrawModeChange={onLassoDrawModeChange}
-          onClose={handleCloseDropdown}
+          onClose={closeAndActivate}
         />
       )}
     </ControlsContainer>

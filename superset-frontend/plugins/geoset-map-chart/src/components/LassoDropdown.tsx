@@ -20,6 +20,7 @@ import { memo } from 'react';
 import { styled } from '@superset-ui/core';
 import type { LassoDrawMode } from './LassoOverlay';
 import type { LassoLayer } from './MapControls';
+import { FreehandIcon, PolygonIcon, RadioIcon } from './icons';
 
 export type LassoDropdownProps = {
   hasMultipleLayers: boolean;
@@ -131,49 +132,6 @@ const ModeButton = styled.button<{ $isActive?: boolean }>(
     background: ${$isActive ? theme.colorPrimaryBgHover : theme.colorBgTextHover};
   }
 `,
-);
-
-const FreehandIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path
-      d="M2 10C4 4 6 12 8 8C10 4 12 11 14 6"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      fill="none"
-    />
-  </svg>
-);
-
-const PolygonIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path
-      d="M3 12L6 3L13 5L11 13Z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      fill="none"
-    />
-    <circle cx="3" cy="12" r="1.5" fill="currentColor" />
-    <circle cx="6" cy="3" r="1.5" fill="currentColor" />
-    <circle cx="13" cy="5" r="1.5" fill="currentColor" />
-    <circle cx="11" cy="13" r="1.5" fill="currentColor" />
-  </svg>
-);
-
-const RadioIcon = ({ selected }: { selected: boolean }) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <circle
-      cx="8"
-      cy="8"
-      r="6.5"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      fill="none"
-    />
-    {selected && <circle cx="8" cy="8" r="3.5" fill="currentColor" />}
-  </svg>
 );
 
 const LassoDropdown = ({
