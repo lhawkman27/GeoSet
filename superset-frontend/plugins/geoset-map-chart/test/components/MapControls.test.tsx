@@ -81,7 +81,7 @@ describe('Lasso — single-layer (no lassoLayers)', () => {
     renderMapControls();
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    expect(screen.getByText('Freehand')).toBeInTheDocument();
+    expect(screen.getByText('Click-and-drag')).toBeInTheDocument();
     expect(screen.getByText('Point-to-point')).toBeInTheDocument();
   });
 
@@ -166,7 +166,7 @@ describe('Lasso — multi-layer', () => {
     renderMapControls({ lassoLayers: layers });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    expect(screen.getByText('Freehand')).toBeInTheDocument();
+    expect(screen.getByText('Click-and-drag')).toBeInTheDocument();
     expect(screen.getByText('Point-to-point')).toBeInTheDocument();
   });
 });

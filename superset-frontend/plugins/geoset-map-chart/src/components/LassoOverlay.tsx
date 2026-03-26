@@ -49,6 +49,13 @@ const DRAW_MODES = {
   polygon: DrawPolygonMode,
 };
 
+const DASH_EXTENSION = new PathStyleExtension({ dash: true });
+const DASH_PROPS = {
+  getDashArray: [8, 4],
+  dashJustified: true,
+  extensions: [DASH_EXTENSION],
+};
+
 /**
  * Hook to create layers for lasso drawing and completed polygon display.
  *
@@ -140,30 +147,14 @@ export function useLassoLayer(
         _subLayerProps: {
           geojson: {
             _subLayerProps: {
-              linestrings: {
-                getDashArray: [8, 4],
-                dashJustified: true,
-                extensions: [new PathStyleExtension({ dash: true })],
-              },
-              'polygons-stroke': {
-                getDashArray: [8, 4],
-                dashJustified: true,
-                extensions: [new PathStyleExtension({ dash: true })],
-              },
+              linestrings: DASH_PROPS,
+              'polygons-stroke': DASH_PROPS,
             },
           },
           guides: {
             _subLayerProps: {
-              linestrings: {
-                getDashArray: [8, 4],
-                dashJustified: true,
-                extensions: [new PathStyleExtension({ dash: true })],
-              },
-              'polygons-stroke': {
-                getDashArray: [8, 4],
-                dashJustified: true,
-                extensions: [new PathStyleExtension({ dash: true })],
-              },
+              linestrings: DASH_PROPS,
+              'polygons-stroke': DASH_PROPS,
             },
           },
         },
@@ -193,9 +184,7 @@ export function useLassoLayer(
         getPath: (d: any) => d.path,
         getColor: [40, 40, 40, 220],
         widthMinPixels: 2,
-        getDashArray: [8, 4],
-        dashJustified: true,
-        extensions: [new PathStyleExtension({ dash: true })],
+        ...DASH_PROPS,
         pickable: false,
       }),
     ];

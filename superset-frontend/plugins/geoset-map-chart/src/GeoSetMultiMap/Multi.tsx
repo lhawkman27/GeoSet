@@ -50,7 +50,10 @@ import type { CategoryEntry, GeoJsonFeature, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import { useLassoSelection } from '../hooks/useLassoSelection';
-import { filterMultiLayerFeaturesInLasso } from '../utils/lassoSelection';
+import {
+  filterFeaturesInLasso,
+  normalizeCategoryKey,
+} from '../utils/lassoSelection';
 import LassoResultsBar from '../components/LassoResultsBar';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
@@ -1039,38 +1042,32 @@ const DeckMulti = (props: DeckMultiProps) => {
   } = useLassoSelection({
     availableLayers: lassoLayers,
     onPolygonComplete: polygon => {
-      const layerFeatureMap: Record<string, GeoJsonFeature[]> = {};
-      sortedLayers.forEach(entry => {
-        const layerId = String(entry.sliceId);
-        if (layerId !== selectedLassoLayerId) return;
+      const entry = sortedLayers.find(
+        e => String(e.sliceId) === selectedLassoLayerId,
+      );
+      if (!entry) return;
 
-        const allFeatures =
-          (entry.transformedProps.payload?.data
-            ?.features as GeoJsonFeature[]) || [];
+      const allFeatures =
+        (entry.transformedProps.payload?.data?.features as GeoJsonFeature[]) ||
+        [];
 
-        // Filter out features whose category is hidden in the legend
-        const sliceVisibility = categoryVisibility[layerId];
-        const dimension = entry.transformedProps.visualConfig?.dimension as
-          | string
-          | undefined;
-        const visibleFeatures =
-          sliceVisibility && dimension
-            ? allFeatures.filter(f => {
-                const raw =
-                  (f as any).categoryName ?? f.properties?.[dimension];
-                if (raw == null) return true;
-                const key = String(raw);
-                return sliceVisibility[key] !== false;
-              })
-            : allFeatures;
+      // Filter out features whose category is hidden in the legend
+      const sliceVisibility = categoryVisibility[String(entry.sliceId)];
+      const dimension = entry.transformedProps.visualConfig?.dimension as
+        | string
+        | undefined;
+      const visibleFeatures =
+        sliceVisibility && dimension
+          ? allFeatures.filter(f => {
+              const raw = (f as any).categoryName ?? f.properties?.[dimension];
+              if (raw == null) return true;
+              const key = normalizeCategoryKey(raw);
+              return sliceVisibility[key] !== false;
+            })
+          : allFeatures;
 
-        const name =
-          (entry.legendEntry.sliceName as string | undefined) ||
-          entry.legendEntry.legendName;
-        layerFeatureMap[name] = visibleFeatures;
-      });
-      const result = filterMultiLayerFeaturesInLasso(layerFeatureMap, polygon);
-      setSelectedFeatures(result.features);
+      const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+      setSelectedFeatures(selected);
 
       // Anchor the results bar near the end of the lasso
       const lastCoord = polygon[polygon.length - 1];
@@ -1251,7 +1248,6 @@ const DeckMulti = (props: DeckMultiProps) => {
       />
       {selectedFeatures.length > 0 && (
         <LassoResultsBar
-          count={selectedFeatures.length}
           features={selectedFeatures}
           onClear={clearSelection}
           anchorPosition={anchorPosition}

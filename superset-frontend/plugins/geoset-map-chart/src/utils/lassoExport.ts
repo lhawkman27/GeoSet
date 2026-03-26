@@ -66,8 +66,12 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function escapeCSV(value: any): string {
-  const str = String(value ?? '');
+export function escapeCSV(value: any): string {
+  let str = String(value ?? '');
+  // Guard against spreadsheet formula injection
+  if (/^[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }

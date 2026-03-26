@@ -27,6 +27,16 @@ import type { GeoJsonFeature } from '../types';
 /** Minimum overlap ratio (0–1) for a polygon to be captured by the lasso. */
 const POLYGON_OVERLAP_THRESHOLD = 0.5;
 
+/**
+ * Normalize a category value to a consistent string key.
+ * Used for matching category visibility across single- and multi-layer views.
+ */
+export function normalizeCategoryKey(raw: unknown): string {
+  if (raw == null) return '';
+  const str = typeof raw === 'string' ? raw : String(raw);
+  return str.trim().toLowerCase();
+}
+
 export interface LassoSelectionResult {
   features: GeoJsonFeature[];
   count: number;

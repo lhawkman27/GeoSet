@@ -59,7 +59,10 @@ import { TooltipProps } from '../../components/Tooltip';
 import Legend, { SizeLegend } from '../../components/Legend';
 import MapControls from '../../components/MapControls';
 import LassoResultsBar from '../../components/LassoResultsBar';
-import { filterFeaturesInLasso } from '../../utils/lassoSelection';
+import {
+  filterFeaturesInLasso,
+  normalizeCategoryKey,
+} from '../../utils/lassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -981,11 +984,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           ? allFeatures.filter(f => {
               const raw = (f as any).categoryName ?? f.properties?.[dimension];
               if (raw == null) return true;
-              const key =
-                typeof raw === 'string'
-                  ? raw.trim().toLowerCase()
-                  : String(raw);
-              return !disabledKeys.has(key);
+              return !disabledKeys.has(normalizeCategoryKey(raw));
             })
           : allFeatures;
 
@@ -1013,12 +1012,12 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(
     (info: any) => {
-      if (measureState.isActive) return;
+      if (measureState.isActive || lassoIsActive) return;
       if (info?.object?.properties) {
         setClickedFeature({ properties: info.object.properties });
       }
     },
-    [measureState.isActive],
+    [measureState.isActive, lassoIsActive],
   );
 
   const handleRulerToggle = useCallback(() => {
@@ -1302,7 +1301,6 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       />
       {selectedFeatures.length > 0 && (
         <LassoResultsBar
-          count={selectedFeatures.length}
           features={selectedFeatures}
           onClear={clearSelection}
           anchorPosition={anchorPosition}

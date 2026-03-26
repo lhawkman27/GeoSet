@@ -403,15 +403,17 @@ export const DeckGLContainer = memo(
     const lassoDrawMode = props.lassoDrawMode ?? 'freehand';
     const lassoPolygon = props.lassoPolygon ?? null;
     const noopLassoComplete = useCallback(() => {}, []);
-    const handleLassoComplete = props.onLassoComplete ?? noopLassoComplete;
     const { layers: lassoLayers } = useLassoLayer(
       lassoIsActive,
-      handleLassoComplete,
+      props.onLassoComplete ?? noopLassoComplete,
       lassoDrawMode,
       lassoPolygon,
     );
 
-    const selectedFeaturesArr = props.selectedFeatures ?? [];
+    const selectedFeaturesArr = useMemo(
+      () => props.selectedFeatures ?? [],
+      [props.selectedFeatures],
+    );
     const hasSelection = selectedFeaturesArr.length > 0;
 
     // Build a highlight layer from lasso-selected features

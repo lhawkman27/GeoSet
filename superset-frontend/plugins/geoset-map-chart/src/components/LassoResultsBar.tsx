@@ -22,7 +22,6 @@ import type { GeoJsonFeature } from '../types';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
 
 export interface LassoResultsBarProps {
-  count: number;
   features: GeoJsonFeature[];
   onClear: () => void;
   anchorPosition?: { x: number; y: number } | null;
@@ -171,13 +170,21 @@ const DownloadIcon = () => (
 );
 
 const LassoResultsBar = ({
-  count,
   features,
   onClear,
   anchorPosition,
 }: LassoResultsBarProps) => {
+  const count = features.length;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
@@ -229,7 +236,9 @@ const LassoResultsBar = ({
           <MenuItem
             onClick={() => {
               exportToExcel(features)
-                .then(() => onClear())
+                .then(() => {
+                  if (mountedRef.current) onClear();
+                })
                 .catch(err => {
                   // eslint-disable-next-line no-console
                   console.error('Excel export failed:', err);

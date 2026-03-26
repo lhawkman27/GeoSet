@@ -82,6 +82,14 @@ export function useLassoSelection(
     }
   }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const resetLassoState = useCallback(() => {
+    setLassoIsActive(false);
+    setSelectedFeatures([]);
+    setLassoPolygon(null);
+    setAnchorPosition(null);
+    setSelectedLassoLayerId(undefined);
+  }, []);
+
   // Deactivate lasso without clearing layer selections (soft deactivation for mode switching)
   const deactivateLasso = useCallback(() => {
     setLassoIsActive(false);
@@ -93,13 +101,10 @@ export function useLassoSelection(
     setAnchorPosition(null);
   }, []);
 
-  // Toggle lasso off — clear results but preserve the selected layer
+  // Toggle lasso off — clear everything including selected layer
   const handleLassoToggle = useCallback(() => {
-    setLassoIsActive(false);
-    setSelectedFeatures([]);
-    setLassoPolygon(null);
-    setAnchorPosition(null);
-  }, []);
+    resetLassoState();
+  }, [resetLassoState]);
 
   // Activate lasso drawing and notify parent (e.g. to deactivate ruler)
   const handleLassoActivate = useCallback(() => {
@@ -124,15 +129,12 @@ export function useLassoSelection(
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setLassoIsActive(false);
-        setSelectedFeatures([]);
-        setLassoPolygon(null);
-        setAnchorPosition(null);
+        resetLassoState();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [lassoIsActive]);
+  }, [lassoIsActive, resetLassoState]);
 
   return {
     lassoIsActive,
