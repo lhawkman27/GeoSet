@@ -26,7 +26,6 @@ import {
   ScatterplotLayer,
 } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
-import { WebMercatorViewport } from '@math.gl/web-mercator';
 // ignoring the eslint error below since typescript prefers 'geojson' to '@types/geojson'
 // eslint-disable-next-line import/no-unresolved
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
@@ -59,10 +58,7 @@ import { TooltipProps } from '../../components/Tooltip';
 import Legend, { SizeLegend } from '../../components/Legend';
 import MapControls from '../../components/MapControls';
 import LassoResultsBar from '../../components/LassoResultsBar';
-import {
-  filterFeaturesInLasso,
-  normalizeCategoryKey,
-} from '../../utils/lassoSelection';
+import { buildLassoResult } from '../../utils/lassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -182,7 +178,7 @@ const recurseGeoJson = (
     };
     // save dimension/category so we don't lose it in metric mode
     if (propOverrides.dimensionColumn) {
-      (enrichedFeature as any).categoryName =
+      enrichedFeature.categoryName =
         alteredProps[propOverrides.dimensionColumn];
     }
 
@@ -348,7 +344,7 @@ export function getLayer(
     // Helper to normalize category keys for lookup
     const getCategoryKey = (f: GeoJsonFeature): string | null => {
       const categoryRaw =
-        (f as any).categoryName ?? f.properties?.[dimension as string];
+        f.categoryName ?? f.properties?.[dimension as string];
       if (categoryRaw == null) return null;
       return typeof categoryRaw === 'string'
         ? categoryRaw.trim().toLowerCase()
@@ -971,33 +967,26 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   } = useLassoSelection({
     onPolygonComplete: polygon => {
       const allFeatures = (payload?.data?.features as GeoJsonFeature[]) || [];
-      const dimension = propVisualConfig?.dimension as string | undefined;
 
-      // Only include features whose category is visible in the legend
-      const disabledKeys = new Set<string>(
+      const hiddenCategoryKeys = new Set<string>(
         Object.entries(categories)
           .filter(([, cat]) => cat.enabled === false)
           .map(([key]) => key),
       );
-      const visibleFeatures =
-        disabledKeys.size > 0 && dimension
-          ? allFeatures.filter(f => {
-              const raw = (f as any).categoryName ?? f.properties?.[dimension];
-              if (raw == null) return true;
-              return !disabledKeys.has(normalizeCategoryKey(raw));
-            })
-          : allFeatures;
 
-      const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+      const { selected, anchorPosition: anchor } = buildLassoResult(
+        allFeatures,
+        polygon,
+        {
+          dimension: propVisualConfig?.dimension as string | undefined,
+          hiddenCategoryKeys,
+          viewport,
+          width,
+          height,
+        },
+      );
       setSelectedFeatures(selected);
-
-      // Anchor the results bar near the end of the lasso
-      const lastCoord = polygon[polygon.length - 1];
-      if (lastCoord) {
-        const wmv = new WebMercatorViewport({ ...viewport, width, height });
-        const [px, py] = wmv.project(lastCoord);
-        setAnchorPosition({ x: px, y: py + 12 });
-      }
+      if (anchor) setAnchorPosition(anchor);
     },
     onActivate: () => {
       setMeasureState({

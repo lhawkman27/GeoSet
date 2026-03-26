@@ -38,7 +38,9 @@ export interface GeoJsonFeature {
   properties: { [key: string]: any };
   extraProps?: { [key: string]: any };
   color?: number[]; // optionally added by addColor
+  strokeColor?: number[]; // optionally added by addColor
   sizeValue?: number; // pre-computed pixel size for dynamic point sizing
+  categoryName?: string; // set during feature enrichment from dimensionColumn
 }
 
 export function toHex(color: ColorType): string {

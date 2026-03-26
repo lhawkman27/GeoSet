@@ -23,8 +23,7 @@ import {
   DrawPolygonMode,
   ViewMode,
 } from '@deck.gl-community/editable-layers';
-import { PathLayer } from '@deck.gl/layers';
-import { SolidPolygonLayer } from '@deck.gl/layers';
+import { PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import type { Coordinate } from '../utils/measureDistance';
 import { closeRing } from '../utils/lassoSelection';
@@ -84,18 +83,22 @@ export function useLassoLayer(
     () => DRAW_MODES[drawMode],
   );
 
-  // Use a ref so handleEdit stays stable regardless of caller memoization
+  // Use refs so effects/callbacks always see the latest values without
+  // needing them in dependency arrays (avoids stale closures and races)
   const onPolygonCompleteRef = useRef(onPolygonComplete);
   onPolygonCompleteRef.current = onPolygonComplete;
+  const drawModeRef = useRef(drawMode);
+  drawModeRef.current = drawMode;
 
   // Reset when lasso is activated — brief delay before enabling draw mode
-  // so the click that closed the dropdown doesn't register as the first vertex
+  // so the click that closed the dropdown doesn't register as the first vertex.
+  // Uses drawModeRef so a mode change during the delay window is respected.
   useEffect(() => {
     if (isActive) {
       setData(EMPTY_FEATURE_COLLECTION);
       setMode(() => ViewMode);
       const timer = setTimeout(() => {
-        setMode(() => DRAW_MODES[drawMode]);
+        setMode(() => DRAW_MODES[drawModeRef.current]);
       }, ACTIVATION_DELAY_MS);
       return () => clearTimeout(timer);
     }
@@ -107,7 +110,7 @@ export function useLassoLayer(
   useEffect(() => {
     if (isActive && !completedPolygon) {
       setData(EMPTY_FEATURE_COLLECTION);
-      setMode(() => DRAW_MODES[drawMode]);
+      setMode(() => DRAW_MODES[drawModeRef.current]);
     }
   }, [completedPolygon]); // eslint-disable-line react-hooks/exhaustive-deps
 

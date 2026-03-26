@@ -33,7 +33,7 @@ describe('useLassoActivation', () => {
     expect(result.current.selectedLassoLayerId).toBe('1');
   });
 
-  it('resetActivation clears both active state and layer selection', () => {
+  it('resetActivation clears active state and re-auto-selects the first layer', () => {
     const { result } = renderHook(() =>
       useLassoActivation({
         availableLayers: [{ id: '1', name: 'Layer 1' }],
@@ -42,7 +42,8 @@ describe('useLassoActivation', () => {
     act(() => result.current.handleLassoActivate());
     act(() => result.current.resetActivation());
     expect(result.current.lassoIsActive).toBe(false);
-    expect(result.current.selectedLassoLayerId).toBeUndefined();
+    // Auto-select re-fires after reset so the first layer is ready for next activation
+    expect(result.current.selectedLassoLayerId).toBe('1');
   });
 
   it('auto-selects first layer when availableLayers provided', () => {

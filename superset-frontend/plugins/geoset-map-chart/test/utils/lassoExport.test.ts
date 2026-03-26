@@ -27,7 +27,12 @@ describe('escapeCSV', () => {
     expect(escapeCSV(42)).toBe('42');
   });
 
-  it('prepends single quote for formula injection characters', () => {
+  it('does not prefix negative numbers with a quote', () => {
+    expect(escapeCSV(-5.2)).toBe('-5.2');
+    expect(escapeCSV(-100)).toBe('-100');
+  });
+
+  it('prepends single quote for formula injection characters in strings', () => {
     expect(escapeCSV('=SUM(A1)')).toBe("'=SUM(A1)");
     expect(escapeCSV('+cmd')).toBe("'+cmd");
     expect(escapeCSV('-exec')).toBe("'-exec");

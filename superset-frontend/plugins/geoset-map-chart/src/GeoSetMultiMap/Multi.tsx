@@ -21,7 +21,6 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
-import { WebMercatorViewport } from '@math.gl/web-mercator';
 import {
   Datasource,
   HandlerFunction,
@@ -50,10 +49,7 @@ import type { CategoryEntry, GeoJsonFeature, LegendEntry } from '../types';
 import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import { useLassoSelection } from '../hooks/useLassoSelection';
-import {
-  filterFeaturesInLasso,
-  normalizeCategoryKey,
-} from '../utils/lassoSelection';
+import { buildLassoResult } from '../utils/lassoSelection';
 import LassoResultsBar from '../components/LassoResultsBar';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
 import { getGeometryType } from '../utils/dataProcessing';
@@ -1051,31 +1047,31 @@ const DeckMulti = (props: DeckMultiProps) => {
         (entry.transformedProps.payload?.data?.features as GeoJsonFeature[]) ||
         [];
 
-      // Filter out features whose category is hidden in the legend
+      // Build hidden-category set from the slice's category visibility map
       const sliceVisibility = categoryVisibility[String(entry.sliceId)];
-      const dimension = entry.transformedProps.visualConfig?.dimension as
-        | string
-        | undefined;
-      const visibleFeatures =
-        sliceVisibility && dimension
-          ? allFeatures.filter(f => {
-              const raw = (f as any).categoryName ?? f.properties?.[dimension];
-              if (raw == null) return true;
-              const key = normalizeCategoryKey(raw);
-              return sliceVisibility[key] !== false;
-            })
-          : allFeatures;
+      const hiddenCategoryKeys = sliceVisibility
+        ? new Set(
+            Object.entries(sliceVisibility)
+              .filter(([, v]) => v === false)
+              .map(([k]) => k),
+          )
+        : undefined;
 
-      const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+      const { selected, anchorPosition: anchor } = buildLassoResult(
+        allFeatures,
+        polygon,
+        {
+          dimension: entry.transformedProps.visualConfig?.dimension as
+            | string
+            | undefined,
+          hiddenCategoryKeys,
+          viewport,
+          width,
+          height,
+        },
+      );
       setSelectedFeatures(selected);
-
-      // Anchor the results bar near the end of the lasso
-      const lastCoord = polygon[polygon.length - 1];
-      if (lastCoord) {
-        const wmv = new WebMercatorViewport({ ...viewport, width, height });
-        const [px, py] = wmv.project(lastCoord);
-        setAnchorPosition({ x: px, y: py + 12 });
-      }
+      if (anchor) setAnchorPosition(anchor);
     },
     onActivate: () => {
       setMeasureState({

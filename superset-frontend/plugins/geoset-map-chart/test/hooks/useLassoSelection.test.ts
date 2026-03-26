@@ -23,7 +23,7 @@ describe('useLassoSelection', () => {
     expect(onActivate).toHaveBeenCalledTimes(1);
   });
 
-  it('deactivates and clears layer on handleLassoToggle', () => {
+  it('deactivates and re-auto-selects first layer on handleLassoToggle', () => {
     const { result } = renderHook(() =>
       useLassoSelection({
         availableLayers: [
@@ -38,10 +38,10 @@ describe('useLassoSelection', () => {
     expect(result.current.lassoIsActive).toBe(true);
     expect(result.current.selectedLassoLayerId).toBe('1');
 
-    // Toggle off — should clear everything
+    // Toggle off — deactivates but auto-select re-fires for next activation
     act(() => result.current.handleLassoToggle());
     expect(result.current.lassoIsActive).toBe(false);
-    expect(result.current.selectedLassoLayerId).toBeUndefined();
+    expect(result.current.selectedLassoLayerId).toBe('1');
   });
 
   it('deactivates without clearing layer on deactivateLasso', () => {

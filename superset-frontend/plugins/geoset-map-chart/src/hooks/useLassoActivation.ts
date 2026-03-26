@@ -51,17 +51,22 @@ export function useLassoActivation(
     string | undefined
   >();
 
+  // Counter bumped on reset so the auto-select effect re-fires even when
+  // availableLayerIds hasn't changed.
+  const [resetCount, setResetCount] = useState(0);
+
   // Auto-select the first available layer when none is selected.
   const availableLayerIds = availableLayers.map(l => l.id).join(',');
   useEffect(() => {
     if (availableLayers.length > 0 && !selectedLassoLayerId) {
       setSelectedLassoLayerId(availableLayers[0].id);
     }
-  }, [availableLayerIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [availableLayerIds, resetCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetActivation = useCallback(() => {
     setLassoIsActive(false);
     setSelectedLassoLayerId(undefined);
+    setResetCount(c => c + 1);
   }, []);
 
   const deactivateLasso = useCallback(() => {

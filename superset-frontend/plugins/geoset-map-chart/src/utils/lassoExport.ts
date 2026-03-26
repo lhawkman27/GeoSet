@@ -68,8 +68,9 @@ function triggerDownload(blob: Blob, filename: string) {
 
 export function escapeCSV(value: any): string {
   let str = String(value ?? '');
-  // Guard against spreadsheet formula injection
-  if (/^[=+\-@]/.test(str)) {
+  // Guard against spreadsheet formula injection — only for non-numeric values
+  // so legitimate negative numbers like -5.2 aren't prefixed with a quote
+  if (typeof value === 'string' && /^[=+\-@]/.test(str)) {
     str = `'${str}`;
   }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {

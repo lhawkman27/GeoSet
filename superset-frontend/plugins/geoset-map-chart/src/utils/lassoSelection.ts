@@ -21,6 +21,7 @@ import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import centroid from '@turf/centroid';
 import intersect from '@turf/intersect';
 import { polygon as turfPolygon, point as turfPoint } from '@turf/helpers';
+import { WebMercatorViewport } from '@math.gl/web-mercator';
 import type { Coordinate } from './measureDistance';
 import type { GeoJsonFeature } from '../types';
 
@@ -35,12 +36,6 @@ export function normalizeCategoryKey(raw: unknown): string {
   if (raw == null) return '';
   const str = typeof raw === 'string' ? raw : String(raw);
   return str.trim().toLowerCase();
-}
-
-export interface LassoSelectionResult {
-  features: GeoJsonFeature[];
-  count: number;
-  byLayer: Record<string, GeoJsonFeature[]>;
 }
 
 /**
@@ -157,22 +152,44 @@ export function filterFeaturesInLasso(
 }
 
 /**
- * Filter features from multiple layers, returning per-layer breakdown.
+ * Filter features by category visibility, run lasso spatial selection,
+ * and compute an anchor position for the results bar.
+ *
+ * Shared between Multi.tsx and GeoSetLayer.tsx to avoid duplication.
  */
-export function filterMultiLayerFeaturesInLasso(
-  layerFeatures: Record<string, GeoJsonFeature[]>,
-  lassoCoords: Coordinate[],
-): LassoSelectionResult {
-  const byLayer: Record<string, GeoJsonFeature[]> = {};
-  const allFeatures: GeoJsonFeature[] = [];
+export function buildLassoResult(
+  allFeatures: GeoJsonFeature[],
+  polygon: Coordinate[],
+  opts: {
+    dimension?: string;
+    hiddenCategoryKeys?: Set<string>;
+    viewport: { longitude: number; latitude: number; zoom: number };
+    width: number;
+    height: number;
+  },
+): { selected: GeoJsonFeature[]; anchorPosition: { x: number; y: number } | null } {
+  const { dimension, hiddenCategoryKeys, viewport, width, height } = opts;
 
-  Object.entries(layerFeatures).forEach(([layerName, features]) => {
-    const selected = filterFeaturesInLasso(features, lassoCoords);
-    if (selected.length > 0) {
-      byLayer[layerName] = selected;
-      allFeatures.push(...selected);
-    }
-  });
+  // Filter out features whose category is hidden in the legend
+  const visibleFeatures =
+    hiddenCategoryKeys && hiddenCategoryKeys.size > 0 && dimension
+      ? allFeatures.filter(f => {
+          const raw = f.categoryName ?? f.properties?.[dimension];
+          if (raw == null) return true;
+          return !hiddenCategoryKeys.has(normalizeCategoryKey(raw));
+        })
+      : allFeatures;
 
-  return { features: allFeatures, count: allFeatures.length, byLayer };
+  const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+
+  // Anchor the results bar near the end of the lasso
+  let anchorPosition: { x: number; y: number } | null = null;
+  const lastCoord = polygon[polygon.length - 1];
+  if (lastCoord) {
+    const wmv = new WebMercatorViewport({ ...viewport, width, height });
+    const [px, py] = wmv.project(lastCoord);
+    anchorPosition = { x: px, y: py + 12 };
+  }
+
+  return { selected, anchorPosition };
 }

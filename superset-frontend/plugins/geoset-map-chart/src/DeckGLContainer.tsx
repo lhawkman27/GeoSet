@@ -426,9 +426,16 @@ export const DeckGLContainer = memo(
             type: 'FeatureCollection' as const,
             features: selectedFeaturesArr,
           },
-          getFillColor: (f: any) => f.color ?? f.properties?.color ?? [255, 200, 0, 200],
-          getLineColor: (f: any) =>
-            f.strokeColor ?? f.properties?.strokeColor ?? [40, 40, 40, 220],
+          getFillColor: (f: any) => {
+            const c = f.color ?? f.properties?.color;
+            if (!c) return [255, 200, 0, 200];
+            return c.length >= 4 ? c : [...c, 200];
+          },
+          getLineColor: (f: any) => {
+            const c = f.strokeColor ?? f.properties?.strokeColor;
+            if (!c) return [40, 40, 40, 220];
+            return c.length >= 4 ? c : [...c, 220];
+          },
           getPointRadius: (f: any) => f.sizeValue ?? 4,
           pointRadiusMinPixels: 4,
           lineWidthMinPixels: 1,
