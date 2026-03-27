@@ -996,15 +996,6 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     },
   });
 
-  // Re-project anchor on every render so the results bar tracks pan/zoom
-  const anchorPosition = useMemo(
-    () =>
-      anchorGeoCoord
-        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
-        : null,
-    [anchorGeoCoord, viewport, width, height],
-  );
-
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(
     (info: any) => {
@@ -1119,6 +1110,15 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     props.viewport,
     width,
   ]);
+
+  // Re-project anchor on every render so the results bar tracks pan/zoom
+  const anchorPosition = useMemo(
+    () =>
+      anchorGeoCoord
+        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
+        : null,
+    [anchorGeoCoord, viewport, width, height],
+  );
 
   // Write live viewport to module-level store (outside Redux) so the actual
   // viewport control value is only changed by explicit user Save actions.
