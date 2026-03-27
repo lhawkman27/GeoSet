@@ -71,8 +71,11 @@ export function useLassoSelection(
     results.clearSelection();
   }, [activation.resetActivation, results.clearSelection]);
 
-  // Toggle lasso off — clear both activation and results state
-  const handleLassoToggle = fullReset;
+  // Toggle lasso off — deactivate and clear results, but keep layer selection
+  const handleLassoToggle = useCallback(() => {
+    activation.deactivateLasso();
+    results.clearSelection();
+  }, [activation.deactivateLasso, results.clearSelection]);
 
   // Escape key exits lasso mode
   useEffect(() => {
