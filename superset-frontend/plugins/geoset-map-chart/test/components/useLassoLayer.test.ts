@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react-hooks';
 
 // Mock the editable-layers library — EditableGeoJsonLayer requires WebGL.
 // Use a global ref so the mock factory (which is hoisted) can access it.
-let mockLayerCalls = [];
+let mockLayerCalls: any[] = [];
 
 jest.mock('@deck.gl-community/editable-layers', () => {
   class FakeDrawPolygonByDraggingMode {}
@@ -11,7 +11,7 @@ jest.mock('@deck.gl-community/editable-layers', () => {
   class FakeDrawRectangleMode {}
   class FakeViewMode {}
 
-  function MockEditableGeoJsonLayer(props) {
+  function MockEditableGeoJsonLayer(props: any) {
     mockLayerCalls.push(props);
     return { id: props.id, props };
   }

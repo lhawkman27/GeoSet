@@ -118,7 +118,6 @@ describe('LassoResultsBar', () => {
       anchorPosition: { x: 50, y: 75 },
     });
     const bar = container.firstChild as HTMLElement;
-    const style = window.getComputedStyle(bar);
     // Styled-component applies left/top from the anchor
     expect(bar).toHaveStyle('left: 50px');
     expect(bar).toHaveStyle('top: 75px');
