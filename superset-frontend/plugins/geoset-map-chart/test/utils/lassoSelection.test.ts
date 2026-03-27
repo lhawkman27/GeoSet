@@ -109,64 +109,78 @@ describe('normalizeCategoryKey', () => {
 });
 
 describe('filterFeaturesInLasso', () => {
-  it('returns empty array when no features provided', () => {
-    expect(filterFeaturesInLasso([], LASSO_SQUARE)).toEqual([]);
+  it('returns empty array when no features provided', async () => {
+    expect(await filterFeaturesInLasso([], LASSO_SQUARE)).toEqual([]);
   });
 
-  it('returns empty array when polygon has fewer than 3 coords', () => {
+  it('returns empty array when polygon has fewer than 3 coords', async () => {
     const features = [makePoint(0, 0)];
     expect(
-      filterFeaturesInLasso(features, [
+      await filterFeaturesInLasso(features, [
         [0, 0],
         [1, 1],
       ]),
     ).toEqual([]);
   });
 
-  it('selects Point features inside the lasso', () => {
+  it('selects Point features inside the lasso', async () => {
     const inside = makePoint(0, 0);
     const outside = makePoint(5, 5);
-    const result = filterFeaturesInLasso([inside, outside], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso(
+      [inside, outside],
+      LASSO_SQUARE,
+    );
     expect(result).toEqual([inside]);
   });
 
-  it('selects MultiPoint features if any point is inside', () => {
+  it('selects MultiPoint features if any point is inside', async () => {
     const mp = makeMultiPoint([
       [0, 0],
       [10, 10],
     ]);
-    const result = filterFeaturesInLasso([mp], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([mp], LASSO_SQUARE);
     expect(result).toEqual([mp]);
   });
 
-  it('rejects MultiPoint features if no point is inside', () => {
+  it('rejects MultiPoint features if no point is inside', async () => {
     const mp = makeMultiPoint([
       [10, 10],
       [20, 20],
     ]);
-    const result = filterFeaturesInLasso([mp], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([mp], LASSO_SQUARE);
     expect(result).toEqual([]);
   });
 
-  it('selects LineString features if any vertex is inside', () => {
+  it('selects LineString features if any vertex is inside', async () => {
     const line = makeLine([
       [0, 0],
       [10, 10],
     ]);
-    const result = filterFeaturesInLasso([line], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([line], LASSO_SQUARE);
     expect(result).toEqual([line]);
   });
 
-  it('rejects LineString features if no vertex is inside', () => {
+  it('selects LineString features that pass through the lasso without a vertex inside', async () => {
+    // Line from well outside on the left to well outside on the right,
+    // passing through the [-1,1] x [-1,1] lasso square at y=0
+    const line = makeLine([
+      [-10, 0],
+      [10, 0],
+    ]);
+    const result = await filterFeaturesInLasso([line], LASSO_SQUARE);
+    expect(result).toEqual([line]);
+  });
+
+  it('rejects LineString features fully outside the lasso', async () => {
     const line = makeLine([
       [10, 10],
       [20, 20],
     ]);
-    const result = filterFeaturesInLasso([line], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([line], LASSO_SQUARE);
     expect(result).toEqual([]);
   });
 
-  it('selects Polygon features with >= 50% overlap', () => {
+  it('selects Polygon features with >= 50% overlap', async () => {
     // Small polygon fully inside the lasso square
     const inside = makePolygon([
       [-0.5, -0.5],
@@ -175,11 +189,11 @@ describe('filterFeaturesInLasso', () => {
       [-0.5, 0.5],
       [-0.5, -0.5],
     ]);
-    const result = filterFeaturesInLasso([inside], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([inside], LASSO_SQUARE);
     expect(result).toEqual([inside]);
   });
 
-  it('rejects Polygon features with < 50% overlap', () => {
+  it('rejects Polygon features with < 50% overlap', async () => {
     // Polygon mostly outside: only a small sliver overlaps the lasso
     const mostlyOutside = makePolygon([
       [0.5, 0.5],
@@ -188,11 +202,11 @@ describe('filterFeaturesInLasso', () => {
       [0.5, 5],
       [0.5, 0.5],
     ]);
-    const result = filterFeaturesInLasso([mostlyOutside], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([mostlyOutside], LASSO_SQUARE);
     expect(result).toEqual([]);
   });
 
-  it('selects MultiPolygon features with sufficient overlap', () => {
+  it('selects MultiPolygon features with sufficient overlap', async () => {
     // One ring fully inside the lasso
     const mp = makeMultiPolygon([
       [
@@ -203,11 +217,11 @@ describe('filterFeaturesInLasso', () => {
         [-0.5, -0.5],
       ],
     ]);
-    const result = filterFeaturesInLasso([mp], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([mp], LASSO_SQUARE);
     expect(result).toEqual([mp]);
   });
 
-  it('selects MultiLineString features if any vertex is inside', () => {
+  it('selects MultiLineString features if any vertex is inside', async () => {
     const ml = makeMultiLine([
       [
         [10, 10],
@@ -218,11 +232,11 @@ describe('filterFeaturesInLasso', () => {
         [10, 10],
       ],
     ]);
-    const result = filterFeaturesInLasso([ml], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([ml], LASSO_SQUARE);
     expect(result).toEqual([ml]);
   });
 
-  it('rejects MultiLineString features if no vertex is inside', () => {
+  it('rejects MultiLineString features if no vertex is inside', async () => {
     const ml = makeMultiLine([
       [
         [10, 10],
@@ -233,16 +247,31 @@ describe('filterFeaturesInLasso', () => {
         [40, 40],
       ],
     ]);
-    const result = filterFeaturesInLasso([ml], LASSO_SQUARE);
+    const result = await filterFeaturesInLasso([ml], LASSO_SQUARE);
     expect(result).toEqual([]);
   });
 
-  it('handles features with missing geometry gracefully', () => {
+  it('handles self-intersecting lasso polygons', async () => {
+    // Bowtie / figure-eight polygon that crosses itself at the origin.
+    // The valid parts should still select the point at (0.5, 0.5).
+    const bowtie: Coordinate[] = [
+      [-1, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+    ];
+    const inside = makePoint(0.5, 0.5);
+    const outside = makePoint(5, 5);
+    const result = await filterFeaturesInLasso([inside, outside], bowtie);
+    expect(result).toEqual([inside]);
+  });
+
+  it('handles features with missing geometry gracefully', async () => {
     const broken = {
       type: 'Feature',
       geometry: null,
       properties: {},
     } as unknown as GeoJsonFeature;
-    expect(filterFeaturesInLasso([broken], LASSO_SQUARE)).toEqual([]);
+    expect(await filterFeaturesInLasso([broken], LASSO_SQUARE)).toEqual([]);
   });
 });

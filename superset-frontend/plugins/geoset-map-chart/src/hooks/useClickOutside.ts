@@ -44,5 +44,5 @@ export function useClickOutside(
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [isActive, ref, callbackRef]);
+  }, [isActive, ref]); // callbackRef is a stable useRef — no need to list it
 }

@@ -17,16 +17,21 @@
  * under the License.
  */
 import area from '@turf/area';
+import booleanIntersects from '@turf/boolean-intersects';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import centroid from '@turf/centroid';
 import intersect from '@turf/intersect';
 import { polygon as turfPolygon, point as turfPoint } from '@turf/helpers';
+import unkinkPolygon from '@turf/unkink-polygon';
 import { WebMercatorViewport } from '@math.gl/web-mercator';
 import type { Coordinate } from './measureDistance';
 import type { GeoJsonFeature } from '../types';
 
 /** Minimum overlap ratio (0–1) for a polygon to be captured by the lasso. */
 const POLYGON_OVERLAP_THRESHOLD = 0.5;
+
+/** Vertical pixel offset applied to the results-bar anchor position. */
+const ANCHOR_VERTICAL_OFFSET = 12;
 
 /**
  * Normalize a category value to a consistent string key.
@@ -114,19 +119,18 @@ function isFeatureInLasso(
         if (!overlap) return false;
         return area(overlap) / featureArea >= POLYGON_OVERLAP_THRESHOLD;
       }
-      case 'LineString': {
-        // Selected if any vertex of the line is inside the lasso
-        return (geometry.coordinates as [number, number][]).some(pt =>
-          booleanPointInPolygon(turfPoint(pt), lassoPoly),
-        );
-      }
+      case 'LineString':
       case 'MultiLineString': {
-        return (geometry.coordinates as [number, number][][]).some(line =>
-          line.some(pt => booleanPointInPolygon(turfPoint(pt), lassoPoly)),
+        // Use full geometric intersection — catches lines that pass through
+        // the lasso even when no vertex lies inside the polygon.
+        return booleanIntersects(
+          { type: 'Feature', geometry, properties: {} } as any,
+          lassoPoly,
         );
       }
       default:
-        // GeometryCollection, etc. — skip
+        // eslint-disable-next-line no-console
+        console.warn(`isFeatureInLasso: unsupported geometry type "${geometry.type}"`);
         return false;
     }
   } catch (err) {
@@ -136,19 +140,59 @@ function isFeatureInLasso(
   }
 }
 
+/** Number of features to process before yielding to the main thread. */
+const FILTER_BATCH_SIZE = 500;
+
+/**
+ * Yield to the main thread so long-running spatial filtering doesn't freeze
+ * the UI.  Uses `setTimeout(0)` as a universal fallback.
+ */
+function yieldToMain(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 /**
  * Filter features that intersect the lasso polygon.
+ *
+ * Self-intersecting polygons (common with freehand drawing) are automatically
+ * split into valid parts via `unkinkPolygon`.  Processing is batched to avoid
+ * blocking the main thread on large datasets.
  */
-export function filterFeaturesInLasso(
+export async function filterFeaturesInLasso(
   features: GeoJsonFeature[],
   lassoCoords: Coordinate[],
-): GeoJsonFeature[] {
+): Promise<GeoJsonFeature[]> {
   if (!features.length || lassoCoords.length < 3) return [];
 
   const closed = closeRing(lassoCoords);
-  const poly = turfPolygon([closed]);
+  const rawPoly = turfPolygon([closed]);
 
-  return features.filter(feature => isFeatureInLasso(feature, poly));
+  // Split self-intersecting polygons into valid parts so turf.js spatial
+  // operations produce correct results.  For valid polygons this returns a
+  // single-element collection, so the overhead is negligible.
+  let polys: ReturnType<typeof turfPolygon>[];
+  try {
+    const unkinked = unkinkPolygon(rawPoly);
+    polys = unkinked.features as ReturnType<typeof turfPolygon>[];
+  } catch {
+    // If unkinking fails (degenerate geometry), fall back to the raw polygon
+    polys = [rawPoly];
+  }
+  if (polys.length === 0) return [];
+
+  const results: GeoJsonFeature[] = [];
+
+  for (let i = 0; i < features.length; i++) {
+    if (polys.some(p => isFeatureInLasso(features[i], p))) {
+      results.push(features[i]);
+    }
+    // Yield to the main thread periodically to prevent UI freezes
+    if ((i + 1) % FILTER_BATCH_SIZE === 0 && i + 1 < features.length) {
+      await yieldToMain();
+    }
+  }
+
+  return results;
 }
 
 /**
@@ -157,18 +201,30 @@ export function filterFeaturesInLasso(
  *
  * Shared between Multi.tsx and GeoSetLayer.tsx to avoid duplication.
  */
-export function buildLassoResult(
+/**
+ * Project a geo coordinate to screen pixel position for the results bar anchor.
+ * Call on every render so the bar tracks the polygon through pan/zoom.
+ */
+export function projectAnchorToScreen(
+  geoCoord: Coordinate,
+  viewport: { longitude: number; latitude: number; zoom: number },
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const wmv = new WebMercatorViewport({ ...viewport, width, height });
+  const [px, py] = wmv.project(geoCoord);
+  return { x: px, y: py + ANCHOR_VERTICAL_OFFSET };
+}
+
+export async function buildLassoResult(
   allFeatures: GeoJsonFeature[],
   polygon: Coordinate[],
   opts: {
     dimension?: string;
     hiddenCategoryKeys?: Set<string>;
-    viewport: { longitude: number; latitude: number; zoom: number };
-    width: number;
-    height: number;
   },
-): { selected: GeoJsonFeature[]; anchorPosition: { x: number; y: number } | null } {
-  const { dimension, hiddenCategoryKeys, viewport, width, height } = opts;
+): Promise<{ selected: GeoJsonFeature[]; anchorGeoCoord: Coordinate | null }> {
+  const { dimension, hiddenCategoryKeys } = opts;
 
   // Filter out features whose category is hidden in the legend
   const visibleFeatures =
@@ -180,16 +236,41 @@ export function buildLassoResult(
         })
       : allFeatures;
 
-  const selected = filterFeaturesInLasso(visibleFeatures, polygon);
+  const selected = await filterFeaturesInLasso(visibleFeatures, polygon);
 
-  // Anchor the results bar near the end of the lasso
-  let anchorPosition: { x: number; y: number } | null = null;
-  const lastCoord = polygon[polygon.length - 1];
-  if (lastCoord) {
-    const wmv = new WebMercatorViewport({ ...viewport, width, height });
-    const [px, py] = wmv.project(lastCoord);
-    anchorPosition = { x: px, y: py + 12 };
-  }
+  // Return the last polygon coordinate as the anchor — callers project it
+  // to screen space on every render so the bar tracks pan/zoom.
+  const anchorGeoCoord: Coordinate | null = polygon[polygon.length - 1] ?? null;
 
-  return { selected, anchorPosition };
+  return { selected, anchorGeoCoord };
+}
+
+/**
+ * Shared handler for the onPolygonComplete callback used by both Multi.tsx
+ * and GeoSetLayer.tsx.  Runs `buildLassoResult` with staleness protection
+ * so a reset during async filtering is safe.
+ */
+export async function handleLassoPolygonComplete(
+  polygon: Coordinate[],
+  features: GeoJsonFeature[],
+  opts: { dimension?: string; hiddenCategoryKeys?: Set<string> },
+  requestIdRef: { current: number },
+  callbacks: {
+    setSelectedFeatures: (features: GeoJsonFeature[]) => void;
+    setAnchorGeoCoord: (coord: Coordinate | null) => void;
+  },
+): Promise<void> {
+  const requestId = ++requestIdRef.current;
+
+  const { selected, anchorGeoCoord } = await buildLassoResult(
+    features,
+    polygon,
+    opts,
+  );
+
+  // Discard if the user reset the lasso while filtering was in progress
+  if (requestIdRef.current !== requestId) return;
+
+  callbacks.setSelectedFeatures(selected);
+  if (anchorGeoCoord) callbacks.setAnchorGeoCoord(anchorGeoCoord);
 }

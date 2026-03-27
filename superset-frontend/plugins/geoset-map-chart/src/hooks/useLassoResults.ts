@@ -28,8 +28,8 @@ export type UseLassoResultsResult = {
   selectedFeatures: GeoJsonFeature[];
   setSelectedFeatures: (features: GeoJsonFeature[]) => void;
   lassoPolygon: Coordinate[] | null;
-  anchorPosition: { x: number; y: number } | null;
-  setAnchorPosition: (pos: { x: number; y: number } | null) => void;
+  anchorGeoCoord: Coordinate | null;
+  setAnchorGeoCoord: (coord: Coordinate | null) => void;
   clearSelection: () => void;
   handleLassoComplete: (polygon: Coordinate[]) => void;
 };
@@ -44,15 +44,14 @@ export function useLassoResults(
     [],
   );
   const [lassoPolygon, setLassoPolygon] = useState<Coordinate[] | null>(null);
-  const [anchorPosition, setAnchorPosition] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [anchorGeoCoord, setAnchorGeoCoord] = useState<Coordinate | null>(
+    null,
+  );
 
   const clearSelection = useCallback(() => {
     setSelectedFeatures([]);
     setLassoPolygon(null);
-    setAnchorPosition(null);
+    setAnchorGeoCoord(null);
   }, []);
 
   const handleLassoComplete = useCallback((polygon: Coordinate[]) => {
@@ -64,8 +63,8 @@ export function useLassoResults(
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
-    anchorPosition,
-    setAnchorPosition,
+    anchorGeoCoord,
+    setAnchorGeoCoord,
     clearSelection,
     handleLassoComplete,
   };

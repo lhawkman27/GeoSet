@@ -21,32 +21,39 @@ import {
   EditableGeoJsonLayer,
   DrawPolygonByDraggingMode,
   DrawPolygonMode,
+  DrawCircleFromCenterMode,
+  DrawRectangleMode,
   ViewMode,
 } from '@deck.gl-community/editable-layers';
 import { PathLayer, SolidPolygonLayer } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import type { Coordinate } from '../utils/measureDistance';
+import type { LassoDrawMode } from '../types';
 import { closeRing } from '../utils/lassoSelection';
-
-export type LassoDrawMode = 'freehand' | 'polygon';
 
 type EditModeConstructor =
   | typeof DrawPolygonByDraggingMode
   | typeof DrawPolygonMode
+  | typeof DrawCircleFromCenterMode
+  | typeof DrawRectangleMode
   | typeof ViewMode;
 
-const EMPTY_FEATURE_COLLECTION = {
+const EMPTY_FEATURE_COLLECTION = Object.freeze({
   type: 'FeatureCollection' as const,
-  features: [] as any[],
-};
+  features: Object.freeze([] as any[]),
+});
 
 // Custom crosshair cursor for lasso drawing mode
 export const LASSO_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23000' stroke-width='1.5'/%3E%3Cline x1='16' y1='8' x2='16' y2='13' stroke='%23000' stroke-width='1.5'/%3E%3Cline x1='16' y1='19' x2='16' y2='24' stroke='%23000' stroke-width='1.5'/%3E%3Cline x1='8' y1='16' x2='13' y2='16' stroke='%23000' stroke-width='1.5'/%3E%3Cline x1='19' y1='16' x2='24' y2='16' stroke='%23000' stroke-width='1.5'/%3E%3C/svg%3E") 16 16, crosshair`;
 
-const DRAW_MODES = {
+const DRAW_MODES: Record<LassoDrawMode, EditModeConstructor> = {
   freehand: DrawPolygonByDraggingMode,
   polygon: DrawPolygonMode,
+  circle: DrawCircleFromCenterMode,
+  rectangle: DrawRectangleMode,
 };
+
+const DRAG_TO_DRAW_MODES: Set<LassoDrawMode> = new Set(['circle', 'rectangle']);
 
 // Shared color constants for lasso fill/stroke across drawing and completed layers
 const LASSO_FILL_COLOR: [number, number, number, number] = [66, 133, 244, 30];
@@ -146,6 +153,9 @@ export function useLassoLayer(
         id: 'lasso-editable-layer',
         data,
         mode,
+        modeConfig: DRAG_TO_DRAW_MODES.has(drawMode)
+          ? { dragToDraw: true }
+          : undefined,
         selectedFeatureIndexes: [],
         onEdit: handleEdit,
 
@@ -175,7 +185,7 @@ export function useLassoLayer(
         pickable: true,
       }),
     ];
-  }, [isActive, data, mode, handleEdit]);
+  }, [isActive, data, mode, drawMode, handleEdit]);
 
   // Static layers for the completed polygon — persists after drawing finishes
   const completedLayers = useMemo(() => {

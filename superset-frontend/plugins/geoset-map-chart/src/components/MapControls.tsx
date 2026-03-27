@@ -19,12 +19,10 @@
 import { memo, useCallback, useState, useRef } from 'react';
 import { styled } from '@superset-ui/core';
 
-import type { LassoDrawMode } from './LassoOverlay';
+import type { LassoDrawMode, LassoLayer } from '../types';
 import LassoDropdown from './LassoDropdown';
 import { HomeIcon, RulerIcon, LassoIcon } from './icons';
 import { useClickOutside } from '../hooks/useClickOutside';
-
-export type LassoLayer = { id: string; name: string };
 
 export type MapControlsProps = {
   onZoomIn: () => void;

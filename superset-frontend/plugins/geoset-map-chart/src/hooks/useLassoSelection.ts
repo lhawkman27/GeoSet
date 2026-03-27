@@ -17,10 +17,8 @@
  * under the License.
  */
 import { useCallback, useEffect } from 'react';
-import type { LassoDrawMode } from '../components/LassoOverlay';
 import type { Coordinate } from '../utils/measureDistance';
-import type { LassoLayer } from '../components/MapControls';
-import type { GeoJsonFeature } from '../types';
+import type { GeoJsonFeature, LassoDrawMode, LassoLayer } from '../types';
 import { useLassoActivation } from './useLassoActivation';
 import { useLassoResults } from './useLassoResults';
 
@@ -41,8 +39,8 @@ export type UseLassoSelectionResult = {
   selectedFeatures: GeoJsonFeature[];
   setSelectedFeatures: (features: GeoJsonFeature[]) => void;
   lassoPolygon: Coordinate[] | null;
-  anchorPosition: { x: number; y: number } | null;
-  setAnchorPosition: (pos: { x: number; y: number } | null) => void;
+  anchorGeoCoord: Coordinate | null;
+  setAnchorGeoCoord: (coord: Coordinate | null) => void;
   clearSelection: () => void;
   handleLassoToggle: () => void;
   handleLassoActivate: () => void;
@@ -101,8 +99,8 @@ export function useLassoSelection(
     selectedFeatures: results.selectedFeatures,
     setSelectedFeatures: results.setSelectedFeatures,
     lassoPolygon: results.lassoPolygon,
-    anchorPosition: results.anchorPosition,
-    setAnchorPosition: results.setAnchorPosition,
+    anchorGeoCoord: results.anchorGeoCoord,
+    setAnchorGeoCoord: results.setAnchorGeoCoord,
     clearSelection: results.clearSelection,
     handleLassoComplete: results.handleLassoComplete,
 

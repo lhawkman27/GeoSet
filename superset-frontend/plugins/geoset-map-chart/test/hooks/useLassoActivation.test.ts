@@ -2,6 +2,10 @@ import { renderHook, act } from '@testing-library/react-hooks';
 import { useLassoActivation } from '../../src/hooks/useLassoActivation';
 
 describe('useLassoActivation', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
   it('returns correct initial state', () => {
     const { result } = renderHook(() => useLassoActivation());
     expect(result.current.lassoIsActive).toBe(false);
@@ -68,6 +72,24 @@ describe('useLassoActivation', () => {
     const { result } = renderHook(() => useLassoActivation());
     act(() => result.current.handleLassoLayerSelect('a'));
     expect(result.current.selectedLassoLayerId).toBe('a');
+  });
+
+  it('persists draw mode to sessionStorage', () => {
+    const { result } = renderHook(() => useLassoActivation());
+    act(() => result.current.setLassoDrawMode('circle'));
+    expect(sessionStorage.getItem('geoset-lasso-draw-mode')).toBe('circle');
+  });
+
+  it('restores draw mode from sessionStorage on mount', () => {
+    sessionStorage.setItem('geoset-lasso-draw-mode', 'rectangle');
+    const { result } = renderHook(() => useLassoActivation());
+    expect(result.current.lassoDrawMode).toBe('rectangle');
+  });
+
+  it('falls back to freehand for invalid sessionStorage value', () => {
+    sessionStorage.setItem('geoset-lasso-draw-mode', 'invalid');
+    const { result } = renderHook(() => useLassoActivation());
+    expect(result.current.lassoDrawMode).toBe('freehand');
   });
 
   it('uses latest onActivate callback without stale closures', () => {

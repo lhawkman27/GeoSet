@@ -17,8 +17,22 @@
  * under the License.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LassoDrawMode } from '../components/LassoOverlay';
-import type { LassoLayer } from '../components/MapControls';
+import type { LassoDrawMode, LassoLayer } from '../types';
+
+const DRAW_MODE_STORAGE_KEY = 'geoset-lasso-draw-mode';
+const VALID_DRAW_MODES: readonly LassoDrawMode[] = ['freehand', 'polygon', 'circle', 'rectangle'];
+
+function getPersistedDrawMode(): LassoDrawMode {
+  try {
+    const stored = sessionStorage.getItem(DRAW_MODE_STORAGE_KEY);
+    if (stored && (VALID_DRAW_MODES as readonly string[]).includes(stored)) {
+      return stored as LassoDrawMode;
+    }
+  } catch {
+    // sessionStorage may be unavailable (SSR, security restrictions)
+  }
+  return 'freehand';
+}
 
 export type UseLassoActivationOptions = {
   availableLayers?: LassoLayer[];
@@ -46,7 +60,16 @@ export function useLassoActivation(
   onActivateRef.current = options.onActivate;
 
   const [lassoIsActive, setLassoIsActive] = useState(false);
-  const [lassoDrawMode, setLassoDrawMode] = useState<LassoDrawMode>('freehand');
+  const [lassoDrawMode, setLassoDrawModeState] = useState<LassoDrawMode>(getPersistedDrawMode);
+
+  const setLassoDrawMode = useCallback((mode: LassoDrawMode) => {
+    setLassoDrawModeState(mode);
+    try {
+      sessionStorage.setItem(DRAW_MODE_STORAGE_KEY, mode);
+    } catch {
+      // sessionStorage may be unavailable
+    }
+  }, []);
   const [selectedLassoLayerId, setSelectedLassoLayerId] = useState<
     string | undefined
   >();

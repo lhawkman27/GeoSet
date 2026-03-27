@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo, useCallback, useEffect, useState, useRef } from 'react';
+import { memo, useCallback, useState, useRef } from 'react';
 import { styled } from '@superset-ui/core';
 import type { GeoJsonFeature } from '../types';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
@@ -141,13 +141,6 @@ const LassoResultsBar = ({
   const count = features.length;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mountedRef = useRef(true);
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-    },
-    [],
-  );
 
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   useClickOutside(containerRef, closeMenu, isMenuOpen);
@@ -164,37 +157,36 @@ const LassoResultsBar = ({
         <CountLabel>{count} Items Selected</CountLabel>
         <IconButton
           onClick={() => setIsMenuOpen(prev => !prev)}
-          title="Export options"
+          aria-label="Export options"
+          aria-expanded={isMenuOpen}
+          aria-haspopup="menu"
         >
           <KebabIcon />
         </IconButton>
-        <IconButton onClick={onClear} title="Clear selection">
+        <IconButton onClick={onClear} aria-label="Clear selection">
           <CloseIcon />
         </IconButton>
       </BarContent>
 
       {isMenuOpen && (
-        <MenuPanel>
+        <MenuPanel role="menu" aria-label="Export formats">
           <MenuHeader>Download</MenuHeader>
           <MenuItem
+            role="menuitem"
             onClick={() => {
               exportToCSV(features);
               setIsMenuOpen(false);
-              onClear();
             }}
           >
             <DownloadIcon /> Export to .CSV
           </MenuItem>
           <MenuItem
+            role="menuitem"
             onClick={() => {
-              exportToExcel(features)
-                .then(() => {
-                  if (mountedRef.current) onClear();
-                })
-                .catch(err => {
-                  // eslint-disable-next-line no-console
-                  console.error('Excel export failed:', err);
-                });
+              exportToExcel(features).catch(err => {
+                // eslint-disable-next-line no-console
+                console.error('Excel export failed:', err);
+              });
               setIsMenuOpen(false);
             }}
           >

@@ -7,7 +7,7 @@ describe('useLassoResults', () => {
     const { result } = renderHook(() => useLassoResults());
     expect(result.current.selectedFeatures).toEqual([]);
     expect(result.current.lassoPolygon).toBeNull();
-    expect(result.current.anchorPosition).toBeNull();
+    expect(result.current.anchorGeoCoord).toBeNull();
   });
 
   it('stores polygon and calls onPolygonComplete when handleLassoComplete fires', () => {
@@ -44,18 +44,18 @@ describe('useLassoResults', () => {
           properties: {},
         },
       ]);
-      result.current.setAnchorPosition({ x: 10, y: 20 });
+      result.current.setAnchorGeoCoord([10, 20]);
     });
 
     expect(result.current.selectedFeatures).toHaveLength(1);
     expect(result.current.lassoPolygon).not.toBeNull();
-    expect(result.current.anchorPosition).not.toBeNull();
+    expect(result.current.anchorGeoCoord).not.toBeNull();
 
     act(() => result.current.clearSelection());
 
     expect(result.current.selectedFeatures).toEqual([]);
     expect(result.current.lassoPolygon).toBeNull();
-    expect(result.current.anchorPosition).toBeNull();
+    expect(result.current.anchorGeoCoord).toBeNull();
   });
 
   it('uses latest onPolygonComplete callback without stale closures', () => {

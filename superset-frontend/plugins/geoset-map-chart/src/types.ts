@@ -113,3 +113,7 @@ export type LegendGroup = {
   entries: { sliceId: string; legendEntry: LegendEntry }[];
   initialCollapsed: boolean; // true only if ALL entries have initialCollapsed
 };
+
+// ── Lasso types ─────────────────────────────────────────────
+export type LassoDrawMode = 'freehand' | 'polygon' | 'circle' | 'rectangle';
+export type LassoLayer = { id: string; name: string };

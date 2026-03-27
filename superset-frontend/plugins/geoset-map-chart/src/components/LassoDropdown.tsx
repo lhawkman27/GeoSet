@@ -18,9 +18,15 @@
  */
 import { memo } from 'react';
 import { styled } from '@superset-ui/core';
-import type { LassoDrawMode } from './LassoOverlay';
-import type { LassoLayer } from './MapControls';
-import { CloseIcon, FreehandIcon, PolygonIcon, RadioIcon } from './icons';
+import type { LassoDrawMode, LassoLayer } from '../types';
+import {
+  CloseIcon,
+  FreehandIcon,
+  PolygonIcon,
+  CircleIcon,
+  RectangleIcon,
+  RadioIcon,
+} from './icons';
 
 export type LassoDropdownProps = {
   hasMultipleLayers: boolean;
@@ -103,6 +109,10 @@ const DropdownItem = styled.button(
 `,
 );
 
+const CLICK_AND_DRAG_MODES: LassoDrawMode[] = ['freehand', 'circle', 'rectangle'];
+const isClickAndDragMode = (mode: LassoDrawMode) =>
+  CLICK_AND_DRAG_MODES.includes(mode);
+
 const ModeToggleSection = styled.div(
   ({ theme }) => `
   display: flex;
@@ -134,6 +144,12 @@ const ModeButton = styled.button<{ $isActive?: boolean }>(
 `,
 );
 
+const ShapeToggleSection = styled.div`
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px 8px;
+`;
+
 const LassoDropdown = ({
   hasMultipleLayers,
   layers,
@@ -142,42 +158,78 @@ const LassoDropdown = ({
   drawMode,
   onDrawModeChange,
   onClose,
-}: LassoDropdownProps) => (
-  <DropdownPanel>
-    <DropdownHeader>
-      {hasMultipleLayers ? 'Select layer' : 'Lasso mode'}
-      <CloseButton onClick={onClose} title="Close">
-        <CloseIcon />
-      </CloseButton>
-    </DropdownHeader>
-    {hasMultipleLayers &&
-      layers.map(layer => {
-        const isSelected = layer.id === activeLassoLayerId;
-        return (
-          <DropdownItem
-            key={layer.id}
-            onClick={() => onLayerSelect?.(layer.id)}
+}: LassoDropdownProps) => {
+  const isDragMode = isClickAndDragMode(drawMode);
+
+  return (
+    <DropdownPanel role="dialog" aria-label="Lasso options">
+      <DropdownHeader>
+        {hasMultipleLayers ? 'Select layer' : 'Lasso mode'}
+        <CloseButton onClick={onClose} aria-label="Close lasso options">
+          <CloseIcon />
+        </CloseButton>
+      </DropdownHeader>
+      {hasMultipleLayers && (
+        <div role="radiogroup" aria-label="Target layer">
+          {layers.map(layer => {
+            const isSelected = layer.id === activeLassoLayerId;
+            return (
+              <DropdownItem
+                key={layer.id}
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => onLayerSelect?.(layer.id)}
+              >
+                <RadioIcon selected={isSelected} />
+                {layer.name}
+              </DropdownItem>
+            );
+          })}
+        </div>
+      )}
+      <ModeToggleSection role="group" aria-label="Draw method">
+        <ModeButton
+          $isActive={isDragMode}
+          aria-pressed={isDragMode}
+          onClick={() => onDrawModeChange?.('freehand')}
+        >
+          <FreehandIcon /> Click-and-drag
+        </ModeButton>
+        <ModeButton
+          $isActive={drawMode === 'polygon'}
+          aria-pressed={drawMode === 'polygon'}
+          onClick={() => onDrawModeChange?.('polygon')}
+        >
+          <PolygonIcon /> Point-to-point
+        </ModeButton>
+      </ModeToggleSection>
+      {isDragMode && (
+        <ShapeToggleSection role="group" aria-label="Shape">
+          <ModeButton
+            $isActive={drawMode === 'freehand'}
+            aria-pressed={drawMode === 'freehand'}
+            onClick={() => onDrawModeChange?.('freehand')}
           >
-            <RadioIcon selected={isSelected} />
-            {layer.name}
-          </DropdownItem>
-        );
-      })}
-    <ModeToggleSection>
-      <ModeButton
-        $isActive={drawMode === 'freehand'}
-        onClick={() => onDrawModeChange?.('freehand')}
-      >
-        <FreehandIcon /> Click-and-drag
-      </ModeButton>
-      <ModeButton
-        $isActive={drawMode === 'polygon'}
-        onClick={() => onDrawModeChange?.('polygon')}
-      >
-        <PolygonIcon /> Point-to-point
-      </ModeButton>
-    </ModeToggleSection>
-  </DropdownPanel>
-);
+            <FreehandIcon /> Freehand
+          </ModeButton>
+          <ModeButton
+            $isActive={drawMode === 'circle'}
+            aria-pressed={drawMode === 'circle'}
+            onClick={() => onDrawModeChange?.('circle')}
+          >
+            <CircleIcon /> Circle
+          </ModeButton>
+          <ModeButton
+            $isActive={drawMode === 'rectangle'}
+            aria-pressed={drawMode === 'rectangle'}
+            onClick={() => onDrawModeChange?.('rectangle')}
+          >
+            <RectangleIcon /> Rectangle
+          </ModeButton>
+        </ShapeToggleSection>
+      )}
+    </DropdownPanel>
+  );
+};
 
 export default memo(LassoDropdown);

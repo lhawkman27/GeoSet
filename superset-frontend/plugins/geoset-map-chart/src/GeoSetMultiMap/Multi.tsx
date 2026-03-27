@@ -50,8 +50,9 @@ import { useGroupedLegend } from '../utils/hooks';
 import MapControls from '../components/MapControls';
 import { useLassoSelection } from '../hooks/useLassoSelection';
 import {
-  buildLassoResult,
+  handleLassoPolygonComplete,
   normalizeCategoryKey,
+  projectAnchorToScreen,
 } from '../utils/lassoSelection';
 import LassoResultsBar from '../components/LassoResultsBar';
 import { CategoryState, MetricLegend, RGBAColor } from '../utils/colors';
@@ -154,6 +155,7 @@ const DeckMulti = (props: DeckMultiProps) => {
   // Ref to track measure state for use in callbacks without creating dependencies
   const measureActiveRef = useRef(false);
   const lassoIsActiveRef = useRef(false);
+  const lassoRequestIdRef = useRef(0);
   // Generation counter to cancel stale lazy-loading chains
   const loadGenerationRef = useRef(0);
   // Store initial autozoom viewport to prevent reset on category toggle
@@ -1030,8 +1032,8 @@ const DeckMulti = (props: DeckMultiProps) => {
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
-    anchorPosition,
-    setAnchorPosition,
+    anchorGeoCoord,
+    setAnchorGeoCoord,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
@@ -1040,7 +1042,7 @@ const DeckMulti = (props: DeckMultiProps) => {
     deactivateLasso,
   } = useLassoSelection({
     availableLayers: lassoLayers,
-    onPolygonComplete: polygon => {
+    onPolygonComplete: async polygon => {
       const entry = sortedLayers.find(
         e => String(e.sliceId) === selectedLassoLayerId,
       );
@@ -1062,21 +1064,18 @@ const DeckMulti = (props: DeckMultiProps) => {
           )
         : undefined;
 
-      const { selected, anchorPosition: anchor } = buildLassoResult(
-        allFeatures,
+      await handleLassoPolygonComplete(
         polygon,
+        allFeatures,
         {
           dimension: entry.transformedProps.visualConfig?.dimension as
             | string
             | undefined,
           hiddenCategoryKeys,
-          viewport,
-          width,
-          height,
         },
+        lassoRequestIdRef,
+        { setSelectedFeatures, setAnchorGeoCoord },
       );
-      setSelectedFeatures(selected);
-      if (anchor) setAnchorPosition(anchor);
     },
     onActivate: () => {
       setMeasureState({
@@ -1090,6 +1089,15 @@ const DeckMulti = (props: DeckMultiProps) => {
 
   // Keep ref in sync with lasso state for use in memoized callbacks
   lassoIsActiveRef.current = lassoIsActive;
+
+  // Re-project anchor on every render so the results bar tracks pan/zoom
+  const anchorPosition = useMemo(
+    () =>
+      anchorGeoCoord
+        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
+        : null,
+    [anchorGeoCoord, viewport, width, height],
+  );
 
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {

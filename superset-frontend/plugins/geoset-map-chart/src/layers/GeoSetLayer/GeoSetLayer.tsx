@@ -58,7 +58,7 @@ import { TooltipProps } from '../../components/Tooltip';
 import Legend, { SizeLegend } from '../../components/Legend';
 import MapControls from '../../components/MapControls';
 import LassoResultsBar from '../../components/LassoResultsBar';
-import { buildLassoResult } from '../../utils/lassoSelection';
+import { handleLassoPolygonComplete, projectAnchorToScreen } from '../../utils/lassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -745,6 +745,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
   } = props;
 
   const containerRef = useRef<DeckGLContainerHandle>();
+  const lassoRequestIdRef = useRef(0);
   const setTooltip = useCallback((tooltip: TooltipProps['tooltip']) => {
     const { current } = containerRef;
     if (current) {
@@ -957,15 +958,15 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     selectedFeatures,
     setSelectedFeatures,
     lassoPolygon,
-    anchorPosition,
-    setAnchorPosition,
+    anchorGeoCoord,
+    setAnchorGeoCoord,
     clearSelection,
     handleLassoToggle,
     handleLassoActivate,
     handleLassoComplete,
     deactivateLasso,
   } = useLassoSelection({
-    onPolygonComplete: polygon => {
+    onPolygonComplete: async polygon => {
       const allFeatures = (payload?.data?.features as GeoJsonFeature[]) || [];
 
       const hiddenCategoryKeys = new Set<string>(
@@ -974,19 +975,16 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           .map(([key]) => key),
       );
 
-      const { selected, anchorPosition: anchor } = buildLassoResult(
-        allFeatures,
+      await handleLassoPolygonComplete(
         polygon,
+        allFeatures,
         {
           dimension: propVisualConfig?.dimension as string | undefined,
           hiddenCategoryKeys,
-          viewport,
-          width,
-          height,
         },
+        lassoRequestIdRef,
+        { setSelectedFeatures, setAnchorGeoCoord },
       );
-      setSelectedFeatures(selected);
-      if (anchor) setAnchorPosition(anchor);
     },
     onActivate: () => {
       setMeasureState({
@@ -997,6 +995,15 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       });
     },
   });
+
+  // Re-project anchor on every render so the results bar tracks pan/zoom
+  const anchorPosition = useMemo(
+    () =>
+      anchorGeoCoord
+        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
+        : null,
+    [anchorGeoCoord, viewport, width, height],
+  );
 
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(

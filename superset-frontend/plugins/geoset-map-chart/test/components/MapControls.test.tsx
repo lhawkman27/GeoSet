@@ -97,7 +97,7 @@ describe('Lasso — single-layer (no lassoLayers)', () => {
     renderMapControls({ onLassoActivate });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    userEvent.click(screen.getByTitle('Close'));
+    userEvent.click(screen.getByLabelText('Close lasso options'));
     expect(onLassoActivate).toHaveBeenCalledTimes(1);
   });
 
@@ -146,7 +146,7 @@ describe('Lasso — multi-layer', () => {
     });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    userEvent.click(screen.getByTitle('Close'));
+    userEvent.click(screen.getByLabelText('Close lasso options'));
     expect(onLassoActivate).toHaveBeenCalledTimes(1);
   });
 
@@ -158,7 +158,7 @@ describe('Lasso — multi-layer', () => {
     });
 
     userEvent.click(screen.getByTitle('Lasso select features'));
-    userEvent.click(screen.getByTitle('Close'));
+    userEvent.click(screen.getByLabelText('Close lasso options'));
     expect(onLassoActivate).not.toHaveBeenCalled();
   });
 

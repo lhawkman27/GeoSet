@@ -121,7 +121,7 @@ Each phase checks a staleness flag before proceeding. When the user changes a fi
 | `components/MultiLegend.tsx` | Drag-and-drop multi-layer legend with toggle/isolate |
 | `components/MapControls.tsx` | Zoom controls, measurement tool, and lasso select tool |
 | `components/LassoDropdown.tsx` | Layer picker and draw-mode toggle dropdown for the lasso tool |
-| `components/LassoOverlay.tsx` | Lasso drawing layers (freehand and point-to-point polygon modes) via `useLassoLayer` hook |
+| `components/useLassoLayer.ts` | Lasso drawing layers (freehand, polygon, circle, and rectangle modes) via `useLassoLayer` hook |
 | `components/LassoResultsBar.tsx` | Selection count bar with CSV/Excel export menu |
 | `hooks/useLassoSelection.ts` | Shared React hook managing lasso state, polygon completion, and layer selection |
 | `utils/lassoSelection.ts` | Geometric intersection filtering (point-in-polygon, area-overlap, and line-vertex) for lasso-selected features |

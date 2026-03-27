@@ -43,13 +43,9 @@ import {
   isValidViewport,
   toNumericViewport,
 } from './utils/fitViewport';
-import { GeoJsonFeature, LayerState } from './types';
+import { GeoJsonFeature, LassoDrawMode, LayerState } from './types';
 import { MeasureState, useMeasureLayers } from './components/MeasureOverlay';
-import {
-  LASSO_CURSOR,
-  useLassoLayer,
-  LassoDrawMode,
-} from './components/LassoOverlay';
+import { LASSO_CURSOR, useLassoLayer } from './components/useLassoLayer';
 import { Coordinate } from './utils/measureDistance';
 
 const TICK = 250; // milliseconds
@@ -116,6 +112,13 @@ const MeasureTooltip = styled.div`
     z-index: 1;
   }
 `;
+
+const LASSO_HINT_TEXT: Record<LassoDrawMode, string> = {
+  freehand: 'Click and drag to draw selection',
+  polygon: 'Double-click or click first point to close',
+  circle: 'Click and drag to draw circle',
+  rectangle: 'Click and drag to draw rectangle',
+};
 
 const LassoHintTooltip = styled.div`
   position: absolute;
@@ -840,9 +843,7 @@ export const DeckGLContainer = memo(
           <LassoHintTooltip
             style={{ left: lassoMousePos.x, top: lassoMousePos.y }}
           >
-            {lassoDrawMode === 'polygon'
-              ? 'Double-click or click first point to close'
-              : 'Click and drag to draw selection'}
+            {LASSO_HINT_TEXT[lassoDrawMode]}
           </LassoHintTooltip>
         )}
         <ScaleControlContainer>

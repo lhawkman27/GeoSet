@@ -1,4 +1,8 @@
-import { featuresToRows, escapeCSV } from '../../src/utils/lassoExport';
+import {
+  featuresToRows,
+  escapeCSV,
+  sanitizeExcelValue,
+} from '../../src/utils/lassoExport';
 import type { GeoJsonFeature } from '../../src/types';
 
 describe('escapeCSV', () => {
@@ -39,9 +43,39 @@ describe('escapeCSV', () => {
     expect(escapeCSV('@import')).toBe("'@import");
   });
 
+  it('wraps strings with tabs in quotes', () => {
+    expect(escapeCSV('col1\tcol2')).toBe('"col1\tcol2"');
+  });
+
   it('handles formula characters combined with commas', () => {
     // Should both prepend quote AND wrap in double quotes
     expect(escapeCSV('=SUM(A1),B2')).toBe("\"'=SUM(A1),B2\"");
+  });
+});
+
+describe('sanitizeExcelValue', () => {
+  it('returns non-string values unchanged', () => {
+    expect(sanitizeExcelValue(42)).toBe(42);
+    expect(sanitizeExcelValue(null)).toBe(null);
+    expect(sanitizeExcelValue(undefined)).toBe(undefined);
+    expect(sanitizeExcelValue(true)).toBe(true);
+  });
+
+  it('returns safe strings unchanged', () => {
+    expect(sanitizeExcelValue('hello')).toBe('hello');
+    expect(sanitizeExcelValue('123')).toBe('123');
+  });
+
+  it('prefixes formula-trigger characters with a single quote', () => {
+    expect(sanitizeExcelValue('=SUM(A1)')).toBe("'=SUM(A1)");
+    expect(sanitizeExcelValue('+cmd')).toBe("'+cmd");
+    expect(sanitizeExcelValue('-exec')).toBe("'-exec");
+    expect(sanitizeExcelValue('@import')).toBe("'@import");
+  });
+
+  it('does not prefix negative numbers', () => {
+    expect(sanitizeExcelValue(-5.2)).toBe(-5.2);
+    expect(sanitizeExcelValue(-100)).toBe(-100);
   });
 });
 

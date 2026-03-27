@@ -7,6 +7,8 @@ let mockLayerCalls = [];
 jest.mock('@deck.gl-community/editable-layers', () => {
   class FakeDrawPolygonByDraggingMode {}
   class FakeDrawPolygonMode {}
+  class FakeDrawCircleFromCenterMode {}
+  class FakeDrawRectangleMode {}
   class FakeViewMode {}
 
   function MockEditableGeoJsonLayer(props) {
@@ -18,11 +20,13 @@ jest.mock('@deck.gl-community/editable-layers', () => {
     EditableGeoJsonLayer: MockEditableGeoJsonLayer,
     DrawPolygonByDraggingMode: FakeDrawPolygonByDraggingMode,
     DrawPolygonMode: FakeDrawPolygonMode,
+    DrawCircleFromCenterMode: FakeDrawCircleFromCenterMode,
+    DrawRectangleMode: FakeDrawRectangleMode,
     ViewMode: FakeViewMode,
   };
 });
 
-import { useLassoLayer } from '../../src/components/LassoOverlay';
+import { useLassoLayer } from '../../src/components/useLassoLayer';
 
 beforeEach(() => {
   mockLayerCalls = [];
@@ -133,5 +137,51 @@ describe('useLassoLayer', () => {
 
     rerender({ active: false });
     expect(result.current.layers).toEqual([]);
+  });
+
+  it('creates a layer for circle draw mode with dragToDraw config', () => {
+    const onComplete = jest.fn();
+    renderHook(() => useLassoLayer(true, onComplete, 'circle'));
+    const lastCall = mockLayerCalls[mockLayerCalls.length - 1];
+    expect(lastCall).toEqual(
+      expect.objectContaining({
+        id: 'lasso-editable-layer',
+        modeConfig: { dragToDraw: true },
+      }),
+    );
+  });
+
+  it('creates a layer for rectangle draw mode with dragToDraw config', () => {
+    const onComplete = jest.fn();
+    renderHook(() => useLassoLayer(true, onComplete, 'rectangle'));
+    const lastCall = mockLayerCalls[mockLayerCalls.length - 1];
+    expect(lastCall).toEqual(
+      expect.objectContaining({
+        id: 'lasso-editable-layer',
+        modeConfig: { dragToDraw: true },
+      }),
+    );
+  });
+
+  it('does not set dragToDraw for polygon mode', () => {
+    const onComplete = jest.fn();
+    renderHook(() => useLassoLayer(true, onComplete, 'polygon'));
+    const lastCall = mockLayerCalls[mockLayerCalls.length - 1];
+    expect(lastCall.modeConfig).toBeUndefined();
+  });
+
+  it('renders completed polygon layers when completedPolygon is provided', () => {
+    const onComplete = jest.fn();
+    const completedPolygon = [
+      [0, 0],
+      [1, 0],
+      [1, 1],
+      [0, 0],
+    ];
+    const { result } = renderHook(() =>
+      useLassoLayer(true, onComplete, 'freehand', completedPolygon as any),
+    );
+    // Should have the editable layer + 2 completed layers (fill + outline)
+    expect(result.current.layers.length).toBeGreaterThanOrEqual(3);
   });
 });

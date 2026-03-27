@@ -66,6 +66,18 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Sanitize a cell value for Excel export.
+ * Prefixes formula-trigger characters with a single quote so they are treated
+ * as literal text, matching the CSV injection protection in escapeCSV.
+ */
+export function sanitizeExcelValue(value: any): any {
+  if (typeof value === 'string' && /^[=+\-@]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 export function escapeCSV(value: any): string {
   let str = String(value ?? '');
   // Guard against spreadsheet formula injection — only for non-numeric values
@@ -73,7 +85,7 @@ export function escapeCSV(value: any): string {
   if (typeof value === 'string' && /^[=+\-@]/.test(str)) {
     str = `'${str}`;
   }
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\t')) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -114,7 +126,13 @@ export async function exportToExcel(
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Lasso Selection');
   ws.columns = headers.map(h => ({ header: h, key: h }));
-  rows.forEach(row => ws.addRow(row));
+  rows.forEach(row => {
+    const sanitized: Record<string, any> = {};
+    for (const key of Object.keys(row)) {
+      sanitized[key] = sanitizeExcelValue(row[key]);
+    }
+    ws.addRow(sanitized);
+  });
   const buffer = await wb.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
