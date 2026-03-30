@@ -113,9 +113,10 @@ function isFeatureInLasso(
         // Selected if >= 50% of the polygon's area is inside the lasso
         const featureArea = area(feature as any);
         if (featureArea === 0) return false;
-        const overlap = intersect(
-          { type: 'FeatureCollection', features: [feature as any, lassoPoly] },
-        );
+        const overlap = intersect({
+          type: 'FeatureCollection',
+          features: [feature as any, lassoPoly],
+        });
         if (!overlap) return false;
         return area(overlap) / featureArea >= POLYGON_OVERLAP_THRESHOLD;
       }
@@ -130,7 +131,9 @@ function isFeatureInLasso(
       }
       default:
         // eslint-disable-next-line no-console
-        console.warn(`isFeatureInLasso: unsupported geometry type "${geometry.type}"`);
+        console.warn(
+          `isFeatureInLasso: unsupported geometry type "${geometry.type}"`,
+        );
         return false;
     }
   } catch (err) {

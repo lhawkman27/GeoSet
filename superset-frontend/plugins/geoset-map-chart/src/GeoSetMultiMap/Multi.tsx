@@ -60,7 +60,7 @@ import { getGeometryType } from '../utils/dataProcessing';
 import { fetchMapboxApiKey, getCachedMapboxApiKey } from '../utils/mapboxApi';
 import { multiChartMigration } from '../utils/migrationApi';
 import ClickPopupBox, { ClickedFeatureInfo } from '../components/ClickPopupBox';
-import { setLiveViewport } from '../utils/liveViewportStore';
+import { setLiveViewport, getLiveViewport } from '../utils/liveViewportStore';
 import {
   DeckSliceConfig,
   resolveLayerAutozoom,
@@ -1090,14 +1090,15 @@ const DeckMulti = (props: DeckMultiProps) => {
   // Keep ref in sync with lasso state for use in memoized callbacks
   lassoIsActiveRef.current = lassoIsActive;
 
-  // Re-project anchor on every render so the results bar tracks pan/zoom
-  const anchorPosition = useMemo(
-    () =>
-      anchorGeoCoord
-        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
-        : null,
-    [anchorGeoCoord, viewport, width, height],
-  );
+  // Re-project anchor on every render so the results bar tracks pan/zoom.
+  // Use the live viewport (updated by DeckGLContainer on pan/zoom) instead of
+  // the initial/autozoom viewport, which goes stale after the user pans.
+  const anchorPosition = useMemo(() => {
+    if (!anchorGeoCoord) return null;
+    const liveVp = getLiveViewport();
+    const vp = liveVp ?? viewport;
+    return projectAnchorToScreen(anchorGeoCoord, vp, width, height);
+  }, [anchorGeoCoord, viewport, width, height]);
 
   const handleRulerToggle = useCallback(() => {
     setMeasureState(prev => {
@@ -1255,11 +1256,14 @@ const DeckMulti = (props: DeckMultiProps) => {
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
-      {selectedFeatures.length > 0 && (
+      {(selectedFeatures.length > 0 || lassoPolygon) && (
         <LassoResultsBar
           features={selectedFeatures}
+          hasPolygon={!!lassoPolygon}
           onClear={clearSelection}
           anchorPosition={anchorPosition}
+          containerWidth={width}
+          containerHeight={height}
         />
       )}
       {clickedFeature && (

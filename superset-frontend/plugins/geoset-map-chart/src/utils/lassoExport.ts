@@ -22,13 +22,29 @@ import { getRepresentativePoint } from './lassoSelection';
 /**
  * Flatten feature properties into tabular rows for export.
  */
+// Internal property keys injected during layer processing — exclude from export
+const INTERNAL_KEYS = new Set([
+  'fillColor',
+  'strokeColor',
+  'color',
+  'strokeWidth',
+  'geojson',
+  'legendName',
+  'legendParentTitle',
+  'sizeValue',
+  'categoryValue',
+  'numericValue',
+]);
+
 export function featuresToRows(
   features: GeoJsonFeature[],
 ): { headers: string[]; rows: Record<string, any>[] } {
   const keySet = new Set<string>();
   features.forEach(f => {
     if (f.properties) {
-      Object.keys(f.properties).forEach(k => keySet.add(k));
+      Object.keys(f.properties).forEach(k => {
+        if (!INTERNAL_KEYS.has(k)) keySet.add(k);
+      });
     }
   });
 

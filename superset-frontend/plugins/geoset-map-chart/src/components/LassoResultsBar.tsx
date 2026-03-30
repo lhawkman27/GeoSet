@@ -16,9 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo, useCallback, useState, useRef } from 'react';
+import { memo, useCallback, useLayoutEffect, useState, useRef } from 'react';
 import { styled, t } from '@superset-ui/core';
-import { useToasts } from 'src/components/MessageToasts/withToasts';
 import type { GeoJsonFeature } from '../types';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
 import { KebabIcon, CloseIcon, DownloadIcon } from './icons';
@@ -26,8 +25,13 @@ import { useClickOutside } from '../hooks/useClickOutside';
 
 export interface LassoResultsBarProps {
   features: GeoJsonFeature[];
+  hasPolygon?: boolean;
   onClear: () => void;
   anchorPosition?: { x: number; y: number } | null;
+  containerWidth?: number;
+  containerHeight?: number;
+  addSuccessToast?: (msg: string) => void;
+  addDangerToast?: (msg: string) => void;
 }
 
 const CONTROL_MARGIN = 12;
@@ -87,11 +91,11 @@ const IconButton = styled.button(
 `,
 );
 
-const MenuPanel = styled.div(
-  ({ theme }) => `
+const MenuPanel = styled.div<{ $flipLeft?: boolean }>(
+  ({ theme, $flipLeft }) => `
   position: absolute;
   top: 0;
-  left: calc(100% + 6px);
+  ${$flipLeft ? 'right: calc(100% + 6px);' : 'left: calc(100% + 6px);'}
   min-width: 170px;
   background: ${theme.colorBgElevated};
   border: 1px solid ${theme.colorBorderSecondary};
@@ -136,51 +140,85 @@ const MenuItem = styled.button<{ $disabled?: boolean }>(
 
 const LassoResultsBar = ({
   features,
+  hasPolygon = false,
   onClear,
   anchorPosition,
+  containerWidth,
+  containerHeight,
+  addSuccessToast,
+  addDangerToast,
 }: LassoResultsBarProps) => {
   const count = features.length;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuFlipLeft, setMenuFlipLeft] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { addSuccessToast, addDangerToast } = useToasts();
+  const [clampedPos, setClampedPos] = useState(anchorPosition);
+
+  // Measure the bar after render and clamp so it stays within the map
+  useLayoutEffect(() => {
+    if (!anchorPosition || !containerRef.current) {
+      setClampedPos(anchorPosition);
+      return;
+    }
+    const el = containerRef.current;
+    const barW = el.offsetWidth;
+    const barH = el.offsetHeight;
+    const maxW = containerWidth ?? Infinity;
+    const maxH = containerHeight ?? Infinity;
+    const pad = 8;
+    const x = Math.max(pad, Math.min(anchorPosition.x, maxW - barW - pad));
+    const y = Math.max(pad, Math.min(anchorPosition.y, maxH - barH - pad));
+    setClampedPos({ x, y });
+  }, [anchorPosition, containerWidth, containerHeight, count]);
+
+  // Determine if menu should flip to the left when it would overflow the container
+  useLayoutEffect(() => {
+    if (!isMenuOpen || !containerRef.current || !containerWidth) return;
+    const el = containerRef.current;
+    const barRight = (clampedPos?.x ?? 0) + el.offsetWidth;
+    const MENU_WIDTH = 176; // min-width (170) + gap (6)
+    setMenuFlipLeft(barRight + MENU_WIDTH > containerWidth);
+  }, [isMenuOpen, clampedPos, containerWidth]);
 
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   useClickOutside(containerRef, closeMenu, isMenuOpen);
 
-  if (count === 0) return null;
+  if (count === 0 && !hasPolygon) return null;
 
   return (
     <BarContainer
       ref={containerRef}
-      $anchorX={anchorPosition?.x}
-      $anchorY={anchorPosition?.y}
+      $anchorX={clampedPos?.x}
+      $anchorY={clampedPos?.y}
     >
       <BarContent>
         <CountLabel>{count} Items Selected</CountLabel>
-        <IconButton
-          onClick={() => setIsMenuOpen(prev => !prev)}
-          aria-label="Export options"
-          aria-expanded={isMenuOpen}
-          aria-haspopup="menu"
-        >
-          <KebabIcon />
-        </IconButton>
+        {count > 0 && (
+          <IconButton
+            onClick={() => setIsMenuOpen(prev => !prev)}
+            aria-label="Export options"
+            aria-expanded={isMenuOpen}
+            aria-haspopup="menu"
+          >
+            <KebabIcon />
+          </IconButton>
+        )}
         <IconButton onClick={onClear} aria-label="Clear selection">
           <CloseIcon />
         </IconButton>
       </BarContent>
 
       {isMenuOpen && (
-        <MenuPanel role="menu" aria-label="Export formats">
+        <MenuPanel role="menu" aria-label="Export formats" $flipLeft={menuFlipLeft}>
           <MenuHeader>Download</MenuHeader>
           <MenuItem
             role="menuitem"
             onClick={() => {
               try {
                 exportToCSV(features);
-                addSuccessToast(t('CSV exported successfully'));
+                addSuccessToast?.(t('CSV exported successfully'));
               } catch (err) {
-                addDangerToast(t('Failed to export CSV'));
+                addDangerToast?.(t('Failed to export CSV'));
               }
               setIsMenuOpen(false);
             }}
@@ -191,8 +229,8 @@ const LassoResultsBar = ({
             role="menuitem"
             onClick={() => {
               exportToExcel(features)
-                .then(() => addSuccessToast(t('Excel exported successfully')))
-                .catch(() => addDangerToast(t('Failed to export Excel')));
+                .then(() => addSuccessToast?.(t('Excel exported successfully')))
+                .catch(() => addDangerToast?.(t('Failed to export Excel')));
               setIsMenuOpen(false);
             }}
           >

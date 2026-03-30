@@ -58,7 +58,10 @@ import { TooltipProps } from '../../components/Tooltip';
 import Legend, { SizeLegend } from '../../components/Legend';
 import MapControls from '../../components/MapControls';
 import LassoResultsBar from '../../components/LassoResultsBar';
-import { handleLassoPolygonComplete, projectAnchorToScreen } from '../../utils/lassoSelection';
+import {
+  handleLassoPolygonComplete,
+  projectAnchorToScreen,
+} from '../../utils/lassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -81,7 +84,10 @@ import {
 import { handleSchemaCheck } from '../../utils/migrationApi';
 import MeasureOverlay, { MeasureState } from '../../components/MeasureOverlay';
 import { Coordinate } from '../../utils/measureDistance';
-import { setLiveViewport } from '../../utils/liveViewportStore';
+import {
+  setLiveViewport,
+  getLiveViewport,
+} from '../../utils/liveViewportStore';
 import ClickPopupBox, {
   ClickedFeatureInfo,
 } from '../../components/ClickPopupBox';
@@ -343,8 +349,7 @@ export function getLayer(
   } else {
     // Helper to normalize category keys for lookup
     const getCategoryKey = (f: GeoJsonFeature): string | null => {
-      const categoryRaw =
-        f.categoryName ?? f.properties?.[dimension as string];
+      const categoryRaw = f.categoryName ?? f.properties?.[dimension as string];
       if (categoryRaw == null) return null;
       return typeof categoryRaw === 'string'
         ? categoryRaw.trim().toLowerCase()
@@ -1111,14 +1116,14 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     width,
   ]);
 
-  // Re-project anchor on every render so the results bar tracks pan/zoom
-  const anchorPosition = useMemo(
-    () =>
-      anchorGeoCoord
-        ? projectAnchorToScreen(anchorGeoCoord, viewport, width, height)
-        : null,
-    [anchorGeoCoord, viewport, width, height],
-  );
+  // Re-project anchor on every render so the results bar tracks pan/zoom.
+  // Use the live viewport instead of the initial/autozoom viewport.
+  const anchorPosition = useMemo(() => {
+    if (!anchorGeoCoord) return null;
+    const liveVp = getLiveViewport();
+    const vp = liveVp ?? viewport;
+    return projectAnchorToScreen(anchorGeoCoord, vp, width, height);
+  }, [anchorGeoCoord, viewport, width, height]);
 
   // Write live viewport to module-level store (outside Redux) so the actual
   // viewport control value is only changed by explicit user Save actions.
@@ -1295,11 +1300,14 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
-      {selectedFeatures.length > 0 && (
+      {(selectedFeatures.length > 0 || lassoPolygon) && (
         <LassoResultsBar
           features={selectedFeatures}
+          hasPolygon={!!lassoPolygon}
           onClear={clearSelection}
           anchorPosition={anchorPosition}
+          containerWidth={width}
+          containerHeight={height}
         />
       )}
       <MeasureOverlay

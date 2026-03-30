@@ -743,12 +743,13 @@ export const DeckGLContainer = memo(
       [measureState.isActive, props.onMeasureDragEnd],
     );
 
-    // Disable map panning when in measure or lasso mode
-    // Lasso needs dragPan off so EditableGeoJsonLayer receives drag events
-    const controllerOptions =
-      measureState.isActive || lassoIsActive
-        ? { dragPan: false, dragRotate: false }
-        : true;
+    // Disable map panning when actively drawing (measure or lasso).
+    // Re-enable after lasso drawing completes so user can pan/zoom the selection.
+    const isActivelyDrawing =
+      measureState.isActive || (lassoIsActive && !lassoPolygon);
+    const controllerOptions = isActivelyDrawing
+      ? { dragPan: false, dragRotate: false }
+      : true;
 
     // Calculate scale info using map projection (matches mapbox-gl ScaleControl exactly)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deps trigger recalc when map state changes
