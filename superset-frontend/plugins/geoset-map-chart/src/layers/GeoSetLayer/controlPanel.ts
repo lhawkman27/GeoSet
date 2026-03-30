@@ -141,6 +141,22 @@ const config: ControlPanelConfig = {
         ],
         [
           {
+            name: 'mvt_tile_url',
+            config: {
+              type: 'TextControl',
+              label: t('MVT Tile URL'),
+              renderTrigger: true,
+              default: '',
+              description: t(
+                'URL template for the MVT tile server. Must include {z}/{x}/{y} placeholders. Example: https://example.com/tiles/{z}/{x}/{y}.pbf',
+              ),
+              visibility: ({ controls }: { controls: any }) =>
+                controls?.geoJsonLayer?.value === 'MVT',
+            },
+          },
+        ],
+        [
+          {
             name: enableClustering.name,
             config: {
               ...enableClustering.config,

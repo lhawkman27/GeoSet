@@ -2,6 +2,22 @@
 import { buildQueryContext, QueryFormData } from '@superset-ui/core';
 
 export default function buildQuery(formData: QueryFormData) {
+  // MVT layers fetch tiles directly from a tile server URL — no Superset query needed.
+  // Return a minimal dummy query so Superset's framework doesn't show "No results."
+  if (formData.geoJsonLayer === 'MVT') {
+    return buildQueryContext(formData, baseQueryObject => [
+      {
+        ...baseQueryObject,
+        columns: [
+          { label: '_mvt', sqlExpression: '1', expressionType: 'SQL' },
+        ],
+        metrics: [],
+        groupby: [],
+        row_limit: 1,
+      },
+    ]);
+  }
+
   const geojsonCol =
     typeof formData.geojson === 'string'
       ? formData.geojson
@@ -10,11 +26,6 @@ export default function buildQuery(formData: QueryFormData) {
   if (!geojsonCol) {
     console.warn('Missing geojson column — skipping query.');
     return buildQueryContext(formData, () => []); // return no queries
-  }
-
-  // MVT layers fetch tiles directly from a tile server URL — no Superset query needed.
-  if (formData.geoJsonLayer === 'MVT') {
-    return buildQueryContext(formData, () => []);
   }
 
   // Parse geojsonConfig JSON blob safely

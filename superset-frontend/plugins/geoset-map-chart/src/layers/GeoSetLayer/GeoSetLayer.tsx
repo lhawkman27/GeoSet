@@ -317,16 +317,7 @@ export function getLayer(
 
   // --- MVT fast path — tiles come from an external URL, no Superset features needed ---
   if (requestedLayerType === 'MVT') {
-    let mvtConfig: any = {};
-    try {
-      mvtConfig =
-        typeof fd.geojsonConfig === 'string'
-          ? JSON.parse(fd.geojsonConfig)
-          : fd.geojsonConfig || {};
-    } catch {
-      // ignore parse errors — tileUrl will be undefined and we return null below
-    }
-    const tileUrl = mvtConfig?.mvtTileUrl;
+    const tileUrl = fd.mvt_tile_url;
     if (!tileUrl) return null;
 
     return new MVTLayer({

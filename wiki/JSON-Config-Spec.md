@@ -17,7 +17,6 @@ Reference for the GeoSet Map Layer JSON configuration object. This is the schema
       - [Constraints](#constraints-2)
     - [textOverlayStyle](#textoverlaystyle)
     - [legend](#legend)
-    - [mvtTileUrl](#mvttileurl)
 
 ## Complete Example
 
@@ -67,7 +66,6 @@ A full configuration showing all fields together. This example renders wind stat
 | `pointSize`        | number or object | no       | Static or data-driven point sizing          |
 | `textOverlayStyle` | object           | no       | Text annotation appearance                  |
 | `legend`           | object           | **yes**  | Legend entry configuration                  |
-| `mvtTileUrl`       | string           | no       | Tile server URL (MVT layer type only)       |
 
 ### Constraints
 
@@ -277,17 +275,3 @@ The following creates a legend group titled "Storm Tracks" with a single entry l
 | ------- | ---------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `title` | string           | **yes**  | —       | Group heading in the legend.                                                                                                                                |
 | `name`  | string or `null` | no       | `null`  | Label for this layer within the group. **Must be `null`** when `colorByCategory` or `colorByValue` is used (those modes generate their own legend entries). |
-
-### mvtTileUrl
-
-URL template for loading Mapbox Vector Tiles from an external tile server. Only used when **Layer Type** is set to **MVT**. When this field is present and the layer type is MVT, no Superset SQL query is executed — tiles are fetched directly from the URL.
-
-```json
-{
-  "mvtTileUrl": "https://example.com/tiles/{z}/{x}/{y}.pbf"
-}
-```
-
-| Field        | Type   | Required                      | Description                                                                  |
-| ------------ | ------ | ----------------------------- | ---------------------------------------------------------------------------- |
-| `mvtTileUrl` | string | **yes** (when Layer Type=MVT) | URL template with `{z}`, `{x}`, `{y}` placeholders for the tile coordinates. |

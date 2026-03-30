@@ -27,9 +27,9 @@ Select the column in your dataset that contains GeoJSON geometry. This can be a 
 | **Line**         | Polylines and paths. Supports dashed/dotted styles.                      |
 | **Text Overlay** | Text labels rendered at feature locations. Requires a Text Label Column. |
 | **GeoJSON**      | Raw GeoJSON — auto-detects geometry type from the data.                  |
-| **MVT**          | Mapbox Vector Tiles loaded from an external tile server URL. No Superset query is executed; tile data is fetched directly. Requires `mvtTileUrl` in GeoJSON Config. |
+| **MVT**          | Mapbox Vector Tiles loaded from an external tile server URL. A lightweight dummy query is sent so Superset does not show "No results." Requires the **MVT Tile URL** control (visible when MVT is selected). |
 
-> **Note:** When using the **MVT** layer type, the GeoJSON Column and Row Limit controls are not used — tile data is fetched directly from the URL specified in `mvtTileUrl`.
+> **Note:** When using the **MVT** layer type, the GeoJSON Column and Row Limit controls are not used — tile data is fetched directly from the URL specified in the **MVT Tile URL** control.
 
 ### Row Limit
 
@@ -74,6 +74,10 @@ Columns to display in the tooltip when hovering over a feature.
 ### Feature Info Columns
 
 Columns to display in the click popup when a feature is clicked.
+
+### MVT Tile URL
+
+Only visible when the **MVT** layer type is selected. Enter the URL template for the vector tile server. The URL must include `{z}/{x}/{y}` placeholders (e.g. `https://example.com/tiles/{z}/{x}/{y}.pbf`).
 
 ## GeoJSON Config
 
