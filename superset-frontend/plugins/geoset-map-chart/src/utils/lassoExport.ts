@@ -108,32 +108,32 @@ export function exportToCSV(
 }
 
 // Cache the dynamic import so subsequent exports don't re-fetch the library
-let excelJsModule: typeof import('exceljs') | null = null;
+let xlsxModule: typeof import('xlsx') | null = null;
 
 /**
  * Download selected features as an Excel (.xlsx) file.
- * exceljs is lazy-loaded to avoid adding to the initial bundle.
+ * xlsx is lazy-loaded to avoid adding to the initial bundle.
  */
 export async function exportToExcel(
   features: GeoJsonFeature[],
   filename?: string,
 ): Promise<void> {
-  if (!excelJsModule) {
-    excelJsModule = await import('exceljs');
+  if (!xlsxModule) {
+    xlsxModule = await import('xlsx');
   }
-  const ExcelJS = excelJsModule;
+  const XLSX = xlsxModule;
   const { headers, rows } = featuresToRows(features);
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Lasso Selection');
-  ws.columns = headers.map(h => ({ header: h, key: h }));
-  rows.forEach(row => {
+  const sanitizedRows = rows.map(row => {
     const sanitized: Record<string, any> = {};
-    for (const key of Object.keys(row)) {
+    for (const key of headers) {
       sanitized[key] = sanitizeExcelValue(row[key]);
     }
-    ws.addRow(sanitized);
+    return sanitized;
   });
-  const buffer = await wb.xlsx.writeBuffer();
+  const ws = XLSX.utils.json_to_sheet(sanitizedRows, { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Lasso Selection');
+  const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
