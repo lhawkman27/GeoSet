@@ -17,7 +17,8 @@
  * under the License.
  */
 import { memo, useCallback, useState, useRef } from 'react';
-import { styled } from '@superset-ui/core';
+import { styled, t } from '@superset-ui/core';
+import { useToasts } from 'src/components/MessageToasts/withToasts';
 import type { GeoJsonFeature } from '../types';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
 import { KebabIcon, CloseIcon, DownloadIcon } from './icons';
@@ -141,6 +142,7 @@ const LassoResultsBar = ({
   const count = features.length;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { addSuccessToast, addDangerToast } = useToasts();
 
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   useClickOutside(containerRef, closeMenu, isMenuOpen);
@@ -174,7 +176,12 @@ const LassoResultsBar = ({
           <MenuItem
             role="menuitem"
             onClick={() => {
-              exportToCSV(features);
+              try {
+                exportToCSV(features);
+                addSuccessToast(t('CSV exported successfully'));
+              } catch (err) {
+                addDangerToast(t('Failed to export CSV'));
+              }
               setIsMenuOpen(false);
             }}
           >
@@ -183,10 +190,9 @@ const LassoResultsBar = ({
           <MenuItem
             role="menuitem"
             onClick={() => {
-              exportToExcel(features).catch(err => {
-                // eslint-disable-next-line no-console
-                console.error('Excel export failed:', err);
-              });
+              exportToExcel(features)
+                .then(() => addSuccessToast(t('Excel exported successfully')))
+                .catch(() => addDangerToast(t('Failed to export Excel')));
               setIsMenuOpen(false);
             }}
           >

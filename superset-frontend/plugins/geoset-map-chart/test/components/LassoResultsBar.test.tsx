@@ -12,6 +12,15 @@ jest.mock('../../src/utils/lassoExport', () => ({
   exportToExcel: jest.fn(() => Promise.resolve()),
 }));
 
+const mockAddSuccessToast = jest.fn();
+const mockAddDangerToast = jest.fn();
+jest.mock('src/components/MessageToasts/withToasts', () => ({
+  useToasts: () => ({
+    addSuccessToast: mockAddSuccessToast,
+    addDangerToast: mockAddDangerToast,
+  }),
+}));
+
 import { exportToCSV, exportToExcel } from '../../src/utils/lassoExport';
 
 const sampleFeatures: GeoJsonFeature[] = [
@@ -121,5 +130,43 @@ describe('LassoResultsBar', () => {
     // Styled-component applies left/top from the anchor
     expect(bar).toHaveStyle('left: 50px');
     expect(bar).toHaveStyle('top: 75px');
+  });
+
+  it('shows success toast after CSV export', () => {
+    renderBar();
+    userEvent.click(screen.getByLabelText('Export options'));
+    userEvent.click(screen.getByText('Export to .CSV'));
+    expect(mockAddSuccessToast).toHaveBeenCalledWith('CSV exported successfully');
+  });
+
+  it('shows danger toast when CSV export fails', () => {
+    (exportToCSV as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('write error');
+    });
+    renderBar();
+    userEvent.click(screen.getByLabelText('Export options'));
+    userEvent.click(screen.getByText('Export to .CSV'));
+    expect(mockAddDangerToast).toHaveBeenCalledWith('Failed to export CSV');
+  });
+
+  it('shows success toast after Excel export', async () => {
+    renderBar();
+    userEvent.click(screen.getByLabelText('Export options'));
+    userEvent.click(screen.getByText('Export to Excel'));
+    // exportToExcel is async — wait for the promise to resolve
+    await screen.findByText('3 Items Selected');
+    expect(mockAddSuccessToast).toHaveBeenCalledWith('Excel exported successfully');
+  });
+
+  it('shows danger toast when Excel export fails', async () => {
+    (exportToExcel as jest.Mock).mockImplementationOnce(() =>
+      Promise.reject(new Error('network error')),
+    );
+    renderBar();
+    userEvent.click(screen.getByLabelText('Export options'));
+    userEvent.click(screen.getByText('Export to Excel'));
+    // Wait for the rejected promise to settle
+    await screen.findByText('3 Items Selected');
+    expect(mockAddDangerToast).toHaveBeenCalledWith('Failed to export Excel');
   });
 });
