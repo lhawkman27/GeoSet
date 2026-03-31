@@ -12,16 +12,10 @@ jest.mock('../../src/utils/lassoExport', () => ({
   exportToExcel: jest.fn(() => Promise.resolve()),
 }));
 
+import { exportToCSV, exportToExcel } from '../../src/utils/lassoExport';
+
 const mockAddSuccessToast = jest.fn();
 const mockAddDangerToast = jest.fn();
-jest.mock('src/components/MessageToasts/withToasts', () => ({
-  useToasts: () => ({
-    addSuccessToast: mockAddSuccessToast,
-    addDangerToast: mockAddDangerToast,
-  }),
-}));
-
-import { exportToCSV, exportToExcel } from '../../src/utils/lassoExport';
 
 const sampleFeatures: GeoJsonFeature[] = [
   {
@@ -45,6 +39,8 @@ const defaultProps: LassoResultsBarProps = {
   features: sampleFeatures,
   onClear: jest.fn(),
   anchorPosition: { x: 100, y: 200 },
+  addSuccessToast: mockAddSuccessToast,
+  addDangerToast: mockAddDangerToast,
 };
 
 function renderBar(overrides: Partial<LassoResultsBarProps> = {}) {
@@ -101,7 +97,7 @@ describe('LassoResultsBar', () => {
     renderBar();
     userEvent.click(screen.getByLabelText('Export options'));
     userEvent.click(screen.getByText('Export to .CSV'));
-    expect(exportToCSV).toHaveBeenCalledWith(sampleFeatures);
+    expect(exportToCSV).toHaveBeenCalledWith(sampleFeatures, undefined);
     // Menu should close
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
@@ -110,7 +106,7 @@ describe('LassoResultsBar', () => {
     renderBar();
     userEvent.click(screen.getByLabelText('Export options'));
     userEvent.click(screen.getByText('Export to Excel'));
-    expect(exportToExcel).toHaveBeenCalledWith(sampleFeatures);
+    expect(exportToExcel).toHaveBeenCalledWith(sampleFeatures, undefined);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
