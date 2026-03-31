@@ -304,33 +304,13 @@ export default function transformProps(chartProps: ChartProps) {
     (col: any) => col.column_name || col.label || col,
   );
 
-  // Build a deduplicated list of all user-configured query columns for export.
-  // This mirrors buildQuery's column list (minus geojson) so the export
-  // includes every table column without any computed/styling properties.
-  const exportColumnNames = (() => {
-    const cols: string[] = [];
-    const add = (name: string | undefined | null) => {
-      if (name && !cols.includes(name)) cols.push(name);
-    };
-    add(dimension);
-    hoverColumnNames.forEach(add);
-    featureInfoColumnNames.forEach(add);
-    add(colorByValue?.valueColumn);
-    add(
-      pointSizeConfigDynamic?.valueColumn ??
-        (typeof rawPointSize === 'object'
-          ? (rawPointSize as any)?.valueColumn
-          : undefined),
-    );
-    const textLabelName =
-      formData.textLabelColumn?.column_name ??
-      formData.textLabelColumn?.label ??
-      (typeof formData.textLabelColumn === 'string'
-        ? formData.textLabelColumn
-        : undefined);
-    add(textLabelName);
-    return cols;
-  })();
+  // Allowlist for lasso export: only hover and additional details columns.
+  // Styling inputs (colorByValue, pointSize, textLabel, dimension) are
+  // excluded — users care about data columns, not rendering config.
+  const exportColumnNames = [
+    ...hoverColumnNames,
+    ...featureInfoColumnNames,
+  ].filter((v, i, a) => a.indexOf(v) === i);
 
   if (!Array.isArray(rawFeatures) || rawFeatures.length === 0) {
     console.warn('🚨 No valid GeoJSON features found');
