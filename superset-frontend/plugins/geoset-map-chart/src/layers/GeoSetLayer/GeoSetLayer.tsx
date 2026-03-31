@@ -713,6 +713,7 @@ export type DeckGLGeoJsonProps = {
   mapStyle: string;
   hoverColumnNames?: string[];
   featureInfoColumnNames?: string[];
+  exportColumnNames?: string[];
   limitReached?: boolean;
   visualConfig?: {
     dimension?: string;
@@ -746,6 +747,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     visualConfig: propVisualConfig,
     hoverColumnNames,
     featureInfoColumnNames,
+    exportColumnNames,
     limitReached,
   } = props;
 
@@ -1308,6 +1310,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
           anchorPosition={anchorPosition}
           containerWidth={width}
           containerHeight={height}
+          exportColumns={exportColumnNames}
         />
       )}
       <MeasureOverlay

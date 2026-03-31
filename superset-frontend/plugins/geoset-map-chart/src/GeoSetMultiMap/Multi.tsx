@@ -139,6 +139,7 @@ type SubsliceLayerEntry = {
     visualConfig: any;
     hoverColumnNames: string[];
     featureInfoColumnNames: string[];
+    exportColumnNames: string[];
   };
   zoomSliderOptions: { minZoom: number; maxZoom: number };
   initiallyHidden: boolean; // Whether this layer starts hidden
@@ -506,6 +507,7 @@ const DeckMulti = (props: DeckMultiProps) => {
                   hoverColumnNames: transformedProps.hoverColumnNames,
                   featureInfoColumnNames:
                     transformedProps.featureInfoColumnNames || [],
+                  exportColumnNames: transformedProps.exportColumnNames || [],
                 },
                 zoomSliderOptions: newLayerStateOptions,
                 initiallyHidden: sliceInitiallyHidden,
@@ -1090,6 +1092,14 @@ const DeckMulti = (props: DeckMultiProps) => {
   // Keep ref in sync with lasso state for use in memoized callbacks
   lassoIsActiveRef.current = lassoIsActive;
 
+  // Allowlist of query columns for lasso export (from the selected layer).
+  const exportColumns = useMemo(() => {
+    const entry = sortedLayers.find(
+      e => String(e.sliceId) === selectedLassoLayerId,
+    );
+    return entry?.transformedProps?.exportColumnNames;
+  }, [sortedLayers, selectedLassoLayerId]);
+
   // Re-project anchor on every render so the results bar tracks pan/zoom.
   // Use the live viewport (updated by DeckGLContainer on pan/zoom) instead of
   // the initial/autozoom viewport, which goes stale after the user pans.
@@ -1264,6 +1274,7 @@ const DeckMulti = (props: DeckMultiProps) => {
           anchorPosition={anchorPosition}
           containerWidth={width}
           containerHeight={height}
+          exportColumns={exportColumns}
         />
       )}
       {clickedFeature && (

@@ -19,44 +19,48 @@
 import type { GeoJsonFeature } from '../types';
 import { getRepresentativePoint } from './lassoSelection';
 
-// Internal property keys injected during layer processing — exclude from export
-const INTERNAL_KEYS = new Set([
-  'fillColor',
-  'strokeColor',
-  'color',
-  'strokeWidth',
-  'geojson',
-  'legendName',
-  'legendParentTitle',
-  'sizeValue',
-  'categoryValue',
-  'numericValue',
-  'pointSize',
-]);
-
-/** Returns true for keys that are computed styling props (not raw data). */
-function isInternalKey(key: string): boolean {
-  return INTERNAL_KEYS.has(key) || key.startsWith('color_');
-}
-
 /**
  * Flatten feature properties into tabular rows for export.
- * Excludes computed styling properties (fillColor, color_*, sizeValue, etc.)
- * so only raw data columns appear in the output.
+ *
+ * Uses an allowlist approach: only columns the user explicitly configured
+ * (dimension, metric, size, hover-over data, additional details, text label)
+ * are included. Any computed/styling properties injected during layer
+ * processing (fillColor, color_*, sizeValue, etc.) are excluded by default.
+ *
+ * When no allowlist is provided, falls back to including all properties.
  */
-export function featuresToRows(features: GeoJsonFeature[]): {
+export function featuresToRows(
+  features: GeoJsonFeature[],
+  allowedColumns?: string[],
+): {
   headers: string[];
   rows: Record<string, any>[];
 } {
-  const keySet = new Set<string>();
-  features.forEach(f => {
-    if (f.properties) {
-      Object.keys(f.properties).forEach(k => {
-        if (!isInternalKey(k)) keySet.add(k);
-      });
-    }
-  });
-  const propHeaders = Array.from(keySet).sort();
+  let propHeaders: string[];
+
+  if (allowedColumns && allowedColumns.length > 0) {
+    const allowed = new Set(allowedColumns);
+    // Only include allowed keys that actually exist on at least one feature
+    const present = new Set<string>();
+    features.forEach(f => {
+      if (f.properties) {
+        Object.keys(f.properties).forEach(k => {
+          if (allowed.has(k)) present.add(k);
+        });
+      }
+    });
+    // Preserve the caller's column order
+    propHeaders = allowedColumns.filter(k => present.has(k));
+  } else {
+    // No allowlist — include all properties (fallback)
+    const keySet = new Set<string>();
+    features.forEach(f => {
+      if (f.properties) {
+        Object.keys(f.properties).forEach(k => keySet.add(k));
+      }
+    });
+    propHeaders = Array.from(keySet).sort();
+  }
 
   const headers = ['_geometry_type', '_longitude', '_latitude', ...propHeaders];
 
@@ -126,9 +130,10 @@ export function escapeCSV(value: any): string {
  */
 export function exportToCSV(
   features: GeoJsonFeature[],
+  allowedColumns?: string[],
   filename?: string,
 ): void {
-  const { headers, rows } = featuresToRows(features);
+  const { headers, rows } = featuresToRows(features, allowedColumns);
   const csvLines = [
     headers.map(escapeCSV).join(','),
     ...rows.map(row => headers.map(h => escapeCSV(row[h])).join(',')),
@@ -146,13 +151,14 @@ let xlsxModule: typeof import('xlsx') | null = null;
  */
 export async function exportToExcel(
   features: GeoJsonFeature[],
+  allowedColumns?: string[],
   filename?: string,
 ): Promise<void> {
   if (!xlsxModule) {
     xlsxModule = await import('xlsx');
   }
   const XLSX = xlsxModule;
-  const { headers, rows } = featuresToRows(features);
+  const { headers, rows } = featuresToRows(features, allowedColumns);
   const sanitizedRows = rows.map(row => {
     const sanitized: Record<string, any> = {};
     for (const key of headers) {

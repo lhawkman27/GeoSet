@@ -30,6 +30,7 @@ export interface LassoResultsBarProps {
   anchorPosition?: { x: number; y: number } | null;
   containerWidth?: number;
   containerHeight?: number;
+  exportColumns?: string[];
   addSuccessToast?: (msg: string) => void;
   addDangerToast?: (msg: string) => void;
 }
@@ -145,6 +146,7 @@ const LassoResultsBar = ({
   anchorPosition,
   containerWidth,
   containerHeight,
+  exportColumns,
   addSuccessToast,
   addDangerToast,
 }: LassoResultsBarProps) => {
@@ -215,7 +217,7 @@ const LassoResultsBar = ({
             role="menuitem"
             onClick={() => {
               try {
-                exportToCSV(features);
+                exportToCSV(features, exportColumns);
                 addSuccessToast?.(t('CSV exported successfully'));
               } catch (err) {
                 addDangerToast?.(t('Failed to export CSV'));
@@ -228,7 +230,7 @@ const LassoResultsBar = ({
           <MenuItem
             role="menuitem"
             onClick={() => {
-              exportToExcel(features)
+              exportToExcel(features, exportColumns)
                 .then(() => addSuccessToast?.(t('Excel exported successfully')))
                 .catch(() => addDangerToast?.(t('Failed to export Excel')));
               setIsMenuOpen(false);
