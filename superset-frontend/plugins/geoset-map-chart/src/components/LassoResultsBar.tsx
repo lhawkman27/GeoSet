@@ -16,23 +16,31 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { memo, useCallback, useLayoutEffect, useState, useRef } from 'react';
+import {
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import { styled, t } from '@superset-ui/core';
+import { message } from 'antd';
 import type { GeoJsonFeature } from '../types';
+import type { Coordinate } from '../utils/measureDistance';
 import { exportToCSV, exportToExcel } from '../utils/lassoExport';
+import { calculateLassoArea } from '../utils/lassoSelection';
 import { KebabIcon, CloseIcon, DownloadIcon } from './icons';
 import { useClickOutside } from '../hooks/useClickOutside';
 
 export interface LassoResultsBarProps {
   features: GeoJsonFeature[];
-  hasPolygon?: boolean;
+  lassoPolygon?: Coordinate[] | null;
   onClear: () => void;
   anchorPosition?: { x: number; y: number } | null;
   containerWidth?: number;
   containerHeight?: number;
   exportColumns?: string[];
-  addSuccessToast?: (msg: string) => void;
-  addDangerToast?: (msg: string) => void;
 }
 
 const CONTROL_MARGIN = 12;
@@ -51,8 +59,7 @@ const BarContainer = styled.div<{ $anchorX?: number; $anchorY?: number }>`
 const BarContent = styled.div(
   ({ theme }) => `
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
   padding: 10px 8px 10px 16px;
   background: ${theme.colorBgElevated};
   border: 1px solid ${theme.colorBorderSecondary};
@@ -62,12 +69,27 @@ const BarContent = styled.div(
 `,
 );
 
+const TopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
 const CountLabel = styled.span(
   ({ theme }) => `
   font-size: 15px;
   font-weight: 700;
   color: ${theme.colorText};
   margin-right: 4px;
+`,
+);
+
+const AreaLabel = styled.span(
+  ({ theme }) => `
+  font-size: 12px;
+  font-weight: 400;
+  color: ${theme.colorTextSecondary};
+  padding-top: 2px;
 `,
 );
 
@@ -141,16 +163,18 @@ const MenuItem = styled.button<{ $disabled?: boolean }>(
 
 const LassoResultsBar = ({
   features,
-  hasPolygon = false,
+  lassoPolygon,
   onClear,
   anchorPosition,
   containerWidth,
   containerHeight,
   exportColumns,
-  addSuccessToast,
-  addDangerToast,
 }: LassoResultsBarProps) => {
   const count = features.length;
+  const areaText = useMemo(
+    () => (lassoPolygon ? calculateLassoArea(lassoPolygon) : null),
+    [lassoPolygon],
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuFlipLeft, setMenuFlipLeft] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -185,7 +209,7 @@ const LassoResultsBar = ({
   const closeMenu = useCallback(() => setIsMenuOpen(false), []);
   useClickOutside(containerRef, closeMenu, isMenuOpen);
 
-  if (count === 0 && !hasPolygon) return null;
+  if (count === 0 && !lassoPolygon) return null;
 
   return (
     <BarContainer
@@ -194,33 +218,46 @@ const LassoResultsBar = ({
       $anchorY={clampedPos?.y}
     >
       <BarContent>
-        <CountLabel>{count} Items Selected</CountLabel>
-        {count > 0 && (
-          <IconButton
-            onClick={() => setIsMenuOpen(prev => !prev)}
-            aria-label="Export options"
-            aria-expanded={isMenuOpen}
-            aria-haspopup="menu"
-          >
-            <KebabIcon />
+        <TopRow>
+          <CountLabel>{count} Items Selected</CountLabel>
+          {count > 0 && (
+            <IconButton
+              onClick={() => setIsMenuOpen(prev => !prev)}
+              aria-label="Export options"
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+            >
+              <KebabIcon />
+            </IconButton>
+          )}
+          <IconButton onClick={onClear} aria-label="Clear selection">
+            <CloseIcon />
           </IconButton>
-        )}
-        <IconButton onClick={onClear} aria-label="Clear selection">
-          <CloseIcon />
-        </IconButton>
+        </TopRow>
+        {areaText && <AreaLabel>Area: {areaText}</AreaLabel>}
       </BarContent>
 
       {isMenuOpen && (
-        <MenuPanel role="menu" aria-label="Export formats" $flipLeft={menuFlipLeft}>
+        <MenuPanel
+          role="menu"
+          aria-label="Export formats"
+          $flipLeft={menuFlipLeft}
+        >
           <MenuHeader>Download</MenuHeader>
           <MenuItem
             role="menuitem"
             onClick={() => {
               try {
                 exportToCSV(features, exportColumns);
-                addSuccessToast?.(t('CSV exported successfully'));
+                message.success({
+                  content: t('CSV exported successfully'),
+                  duration: 3,
+                });
               } catch (err) {
-                addDangerToast?.(t('Failed to export CSV'));
+                message.error({
+                  content: t('Failed to export CSV'),
+                  duration: 5,
+                });
               }
               setIsMenuOpen(false);
             }}
@@ -231,8 +268,18 @@ const LassoResultsBar = ({
             role="menuitem"
             onClick={() => {
               exportToExcel(features, exportColumns)
-                .then(() => addSuccessToast?.(t('Excel exported successfully')))
-                .catch(() => addDangerToast?.(t('Failed to export Excel')));
+                .then(() =>
+                  message.success({
+                    content: t('Excel exported successfully'),
+                    duration: 3,
+                  }),
+                )
+                .catch(() =>
+                  message.error({
+                    content: t('Failed to export Excel'),
+                    duration: 5,
+                  }),
+                );
               setIsMenuOpen(false);
             }}
           >

@@ -82,6 +82,34 @@ export function closeRing(coords: Coordinate[]): Coordinate[] {
   return [...coords, first];
 }
 
+const SQ_METERS_PER_ACRE = 4046.86;
+const SQ_METERS_PER_SQ_MILE = 2_589_988;
+const SQ_METERS_PER_SQ_KM = 1_000_000;
+
+/**
+ * Calculate the area of a lasso polygon and return a human-readable string.
+ * Returns `null` when the polygon has fewer than 3 coordinates.
+ *
+ * - < 1 km²: displayed in acres
+ * - >= 1 km²: displayed in square miles
+ */
+export function calculateLassoArea(
+  coords: Coordinate[],
+): string | null {
+  if (coords.length < 3) return null;
+
+  const closed = closeRing(coords);
+  const poly = turfPolygon([closed]);
+  const sqMeters = area(poly);
+
+  if (sqMeters < SQ_METERS_PER_SQ_KM) {
+    const acres = sqMeters / SQ_METERS_PER_ACRE;
+    return `${acres < 0.1 ? acres.toFixed(2) : acres.toFixed(1)} acres`;
+  }
+  const sqMiles = sqMeters / SQ_METERS_PER_SQ_MILE;
+  return `${sqMiles.toFixed(1)} sq mi`;
+}
+
 /**
  * Test whether a feature intersects the lasso polygon.
  *

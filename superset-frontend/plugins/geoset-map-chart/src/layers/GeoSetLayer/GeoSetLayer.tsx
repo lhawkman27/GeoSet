@@ -1305,7 +1305,7 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
       {(selectedFeatures.length > 0 || (lassoPolygon && anchorPosition)) && (
         <LassoResultsBar
           features={selectedFeatures}
-          hasPolygon={!!lassoPolygon}
+          lassoPolygon={lassoPolygon}
           onClear={clearSelection}
           anchorPosition={anchorPosition}
           containerWidth={width}
