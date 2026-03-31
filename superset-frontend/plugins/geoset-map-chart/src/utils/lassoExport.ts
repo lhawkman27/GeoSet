@@ -19,9 +19,6 @@
 import type { GeoJsonFeature } from '../types';
 import { getRepresentativePoint } from './lassoSelection';
 
-/**
- * Flatten feature properties into tabular rows for export.
- */
 // Internal property keys injected during layer processing — exclude from export
 const INTERNAL_KEYS = new Set([
   'fillColor',
@@ -34,21 +31,33 @@ const INTERNAL_KEYS = new Set([
   'sizeValue',
   'categoryValue',
   'numericValue',
+  'pointSize',
 ]);
 
-export function featuresToRows(
-  features: GeoJsonFeature[],
-): { headers: string[]; rows: Record<string, any>[] } {
+/** Returns true for keys that are computed styling props (not raw data). */
+function isInternalKey(key: string): boolean {
+  return INTERNAL_KEYS.has(key) || key.startsWith('color_');
+}
+
+/**
+ * Flatten feature properties into tabular rows for export.
+ * Excludes computed styling properties (fillColor, color_*, sizeValue, etc.)
+ * so only raw data columns appear in the output.
+ */
+export function featuresToRows(features: GeoJsonFeature[]): {
+  headers: string[];
+  rows: Record<string, any>[];
+} {
   const keySet = new Set<string>();
   features.forEach(f => {
     if (f.properties) {
       Object.keys(f.properties).forEach(k => {
-        if (!INTERNAL_KEYS.has(k)) keySet.add(k);
+        if (!isInternalKey(k)) keySet.add(k);
       });
     }
   });
-
   const propHeaders = Array.from(keySet).sort();
+
   const headers = ['_geometry_type', '_longitude', '_latitude', ...propHeaders];
 
   const rows = features.map(f => {
@@ -101,7 +110,12 @@ export function escapeCSV(value: any): string {
   if (typeof value === 'string' && /^[=+\-@]/.test(str)) {
     str = `'${str}`;
   }
-  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\t')) {
+  if (
+    str.includes(',') ||
+    str.includes('"') ||
+    str.includes('\n') ||
+    str.includes('\t')
+  ) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
