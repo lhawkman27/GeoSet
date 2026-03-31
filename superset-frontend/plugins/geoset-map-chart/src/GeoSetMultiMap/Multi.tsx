@@ -1256,7 +1256,7 @@ const DeckMulti = (props: DeckMultiProps) => {
         onLassoDrawModeChange={setLassoDrawMode}
         position="top-right"
       />
-      {(selectedFeatures.length > 0 || lassoPolygon) && (
+      {(selectedFeatures.length > 0 || (lassoPolygon && anchorPosition)) && (
         <LassoResultsBar
           features={selectedFeatures}
           hasPolygon={!!lassoPolygon}

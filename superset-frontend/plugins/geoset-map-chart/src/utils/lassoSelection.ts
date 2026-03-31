@@ -144,7 +144,10 @@ function isFeatureInLasso(
 }
 
 /** Number of features to process before yielding to the main thread. */
-const FILTER_BATCH_SIZE = 500;
+const FILTER_BATCH_SIZE = 2000;
+
+/** Datasets at or below this size run synchronously (no yield overhead). */
+const SYNC_THRESHOLD = 5000;
 
 /**
  * Yield to the main thread so long-running spatial filtering doesn't freeze
@@ -155,11 +158,33 @@ function yieldToMain(): Promise<void> {
 }
 
 /**
+ * Prepare lasso polygon(s) for spatial testing.
+ * Handles closing the ring and splitting self-intersecting polygons.
+ */
+function prepareLassoPolygons(
+  lassoCoords: Coordinate[],
+): ReturnType<typeof turfPolygon>[] {
+  const closed = closeRing(lassoCoords);
+  const rawPoly = turfPolygon([closed]);
+
+  // Split self-intersecting polygons into valid parts so turf.js spatial
+  // operations produce correct results.  For valid polygons this returns a
+  // single-element collection, so the overhead is negligible.
+  try {
+    const unkinked = unkinkPolygon(rawPoly);
+    return unkinked.features as ReturnType<typeof turfPolygon>[];
+  } catch {
+    // If unkinking fails (degenerate geometry), fall back to the raw polygon
+    return [rawPoly];
+  }
+}
+
+/**
  * Filter features that intersect the lasso polygon.
  *
  * Self-intersecting polygons (common with freehand drawing) are automatically
- * split into valid parts via `unkinkPolygon`.  Processing is batched to avoid
- * blocking the main thread on large datasets.
+ * split into valid parts via `unkinkPolygon`.  Small datasets run synchronously
+ * for instant results; large datasets are batched to avoid blocking the UI.
  */
 export async function filterFeaturesInLasso(
   features: GeoJsonFeature[],
@@ -167,29 +192,26 @@ export async function filterFeaturesInLasso(
 ): Promise<GeoJsonFeature[]> {
   if (!features.length || lassoCoords.length < 3) return [];
 
-  const closed = closeRing(lassoCoords);
-  const rawPoly = turfPolygon([closed]);
-
-  // Split self-intersecting polygons into valid parts so turf.js spatial
-  // operations produce correct results.  For valid polygons this returns a
-  // single-element collection, so the overhead is negligible.
-  let polys: ReturnType<typeof turfPolygon>[];
-  try {
-    const unkinked = unkinkPolygon(rawPoly);
-    polys = unkinked.features as ReturnType<typeof turfPolygon>[];
-  } catch {
-    // If unkinking fails (degenerate geometry), fall back to the raw polygon
-    polys = [rawPoly];
-  }
+  const polys = prepareLassoPolygons(lassoCoords);
   if (polys.length === 0) return [];
 
   const results: GeoJsonFeature[] = [];
 
+  // Run synchronously for small-to-medium datasets to avoid async overhead
+  if (features.length <= SYNC_THRESHOLD) {
+    for (let i = 0; i < features.length; i++) {
+      if (polys.some(p => isFeatureInLasso(features[i], p))) {
+        results.push(features[i]);
+      }
+    }
+    return results;
+  }
+
+  // Batch with yields for large datasets to keep the UI responsive
   for (let i = 0; i < features.length; i++) {
     if (polys.some(p => isFeatureInLasso(features[i], p))) {
       results.push(features[i]);
     }
-    // Yield to the main thread periodically to prevent UI freezes
     if ((i + 1) % FILTER_BATCH_SIZE === 0 && i + 1 < features.length) {
       await yieldToMain();
     }
