@@ -65,6 +65,12 @@ When a Multi Map chart is rendered on a dashboard, a unified legend is shown cov
 - **Layer ordering** — drag layer groups in the legend to change their z-order (front to back)
 - **Collapse/expand** — click a group title to collapse its entries
 
+## Lasso Select Tool
+
+The lasso tool is available on multi-layer maps for selecting and exporting features from a single layer at a time. See [[GeoSet Map Layer#Lasso Select Tool|Lasso Select Tool]] for full usage details, draw modes, and selection behavior.
+
+On multi-layer maps, the lasso dropdown lists all layers that have the **Lasso Selectable** setting enabled. Only the selected layer's features are evaluated against the drawn shape. Exported files include the **Hover Data** and **Feature Info** columns configured on that layer.
+
 ## Filters
 
 The **Filters** section (Query panel) applies SQL filters scoped to the Multi Map chart's own dataset. To filter data within individual layer charts, configure filters on those charts directly or use Superset native dashboard filters scoped to the appropriate datasets.
