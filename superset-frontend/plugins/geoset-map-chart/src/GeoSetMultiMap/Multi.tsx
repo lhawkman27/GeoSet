@@ -194,6 +194,8 @@ const DeckMulti = (props: DeckMultiProps) => {
     setClickedFeature(null);
   }, []);
   const setTooltip = useCallback((tooltip: TooltipProps['tooltip']) => {
+    // Suppress hover tooltips while lasso mode is active
+    if (lassoIsActiveRef.current) return;
     const { current } = containerRef;
     if (current) {
       current.setTooltip(tooltip);
@@ -1086,6 +1088,8 @@ const DeckMulti = (props: DeckMultiProps) => {
         isActive: false,
         isDragging: false,
       });
+      // Clear any visible tooltip when entering lasso mode
+      containerRef.current?.setTooltip(null);
     },
   });
 

@@ -67,7 +67,7 @@ const LASSO_TENTATIVE_LINE_COLOR: [number, number, number, number] = [
 
 // Delay before enabling draw mode after activation, so the dropdown-close click
 // doesn't register as the first vertex
-const ACTIVATION_DELAY_MS = 300;
+const ACTIVATION_DELAY_MS = 450;
 
 const DASH_EXTENSION = new PathStyleExtension({ dash: true });
 const DASH_PROPS = {

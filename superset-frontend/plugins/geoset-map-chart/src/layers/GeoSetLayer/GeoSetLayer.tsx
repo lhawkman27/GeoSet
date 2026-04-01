@@ -753,7 +753,10 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
 
   const containerRef = useRef<DeckGLContainerHandle>();
   const lassoRequestIdRef = useRef(0);
+  const lassoIsActiveRef = useRef(false);
   const setTooltip = useCallback((tooltip: TooltipProps['tooltip']) => {
+    // Suppress hover tooltips while lasso mode is active
+    if (lassoIsActiveRef.current) return;
     const { current } = containerRef;
     if (current) {
       current.setTooltip(tooltip);
@@ -1000,8 +1003,13 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
         isActive: false,
         isDragging: false,
       });
+      // Clear any visible tooltip when entering lasso mode
+      containerRef.current?.setTooltip(null);
     },
   });
+
+  // Keep ref in sync with lasso state for use in memoized callbacks
+  lassoIsActiveRef.current = lassoIsActive;
 
   // Don't show popup when measurement mode is active
   const handleFeatureClick = useCallback(
