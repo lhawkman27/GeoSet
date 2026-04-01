@@ -7,10 +7,37 @@ import {
   createCategoricalLegendEntry,
   createMetricLegendEntry,
   createLegendGroup,
+  createSizeLegend,
   createCategoryEntry,
   RED,
   GREEN,
+  TEAL,
 } from '../testFixtures';
+
+// Mock GraduatedIcons to isolate legend rendering behavior
+jest.mock('../../src/components/GraduatedIcons', () => {
+  const MockGraduatedIcons = (props: any) => (
+    <div
+      data-test="graduated-icons"
+      data-lower={props.lower}
+      data-upper={props.upper}
+    />
+  );
+  MockGraduatedIcons.displayName = 'MockGraduatedIcons';
+  return { __esModule: true, default: MockGraduatedIcons };
+});
+
+jest.mock('../../src/components/CategorySizeGrid', () => {
+  const MockCategorySizeGrid = (props: any) => (
+    <div data-test="category-size-grid">
+      {props.categories.map((cat: any) => (
+        <span key={cat.key}>{props.renderLabel(cat)}</span>
+      ))}
+    </div>
+  );
+  MockCategorySizeGrid.displayName = 'MockCategorySizeGrid';
+  return { __esModule: true, default: MockCategorySizeGrid };
+});
 
 // Mock Material-UI icon to avoid transform issues
 jest.mock('@material-ui/icons/MapTwoTone', () => {
@@ -562,6 +589,147 @@ describe('MultiLegend', () => {
       userEvent.click(screen.getByText('Legend'));
       expect(screen.getByText('0')).toBeInTheDocument();
       expect(screen.getByText('500+')).toBeInTheDocument();
+    });
+  });
+
+  describe('single-value size legend (startSize === endSize)', () => {
+    const collapsedSizeLegend = createSizeLegend({
+      startSize: 17,
+      endSize: 17,
+      legendName: 'Single Point',
+    });
+
+    it('simple entry shows swatch and name when sizeEntry has equal sizes', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createSimpleLegendEntry({
+                    legendName: 'Simple Single',
+                    sizeEntry: collapsedSizeLegend,
+                  }),
+                },
+              ],
+            }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      // Name appears in both the simple row and the single-value size swatch row
+      expect(screen.getAllByText('Simple Single').length).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+    });
+
+    it('combined metric+size shows swatch instead of graduated icons', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createMetricLegendEntry({
+                    legendName: 'Combined Single',
+                    isCombinedMetricSize: true,
+                    sizeEntry: collapsedSizeLegend,
+                  }),
+                },
+              ],
+            }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      expect(screen.getByText('Combined Single')).toBeInTheDocument();
+      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+    });
+
+    it('standalone size legend shows swatch instead of graduated icons', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createSimpleLegendEntry({
+                    legendName: 'Standalone Single',
+                    sizeEntry: collapsedSizeLegend,
+                    simpleStyle: undefined,
+                  }),
+                },
+              ],
+            }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      expect(screen.getByText('Standalone Single')).toBeInTheDocument();
+      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+    });
+
+    it('uses singleValueColor for swatch when provided', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createMetricLegendEntry({
+                    legendName: 'Colored Single',
+                    isCombinedMetricSize: true,
+                    sizeEntry: createSizeLegend({
+                      startSize: 17,
+                      endSize: 17,
+                      singleValueColor: [255, 128, 0, 255],
+                    }),
+                  }),
+                },
+              ],
+            }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      expect(screen.getByText('Colored Single')).toBeInTheDocument();
+      expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
+    });
+
+    it('renders graduated icons when sizeEntry has different start/end sizes', () => {
+      renderWithTheme(
+        <MultiLegend
+          legendGroups={[
+            createLegendGroup({
+              entries: [
+                {
+                  sliceId: '1',
+                  legendEntry: createMetricLegendEntry({
+                    legendName: 'Ranged Size',
+                    isCombinedMetricSize: true,
+                    sizeEntry: createSizeLegend({
+                      startSize: 5,
+                      endSize: 50,
+                    }),
+                  }),
+                },
+              ],
+            }),
+          ]}
+          layerVisibility={EMPTY_VISIBILITY}
+        />,
+      );
+      userEvent.click(screen.getByText('Legend'));
+      expect(screen.getByTestId('graduated-icons')).toBeInTheDocument();
     });
   });
 });
