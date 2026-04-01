@@ -11,8 +11,9 @@ import {
   createCategoryEntry,
   RED,
   GREEN,
-  TEAL,
 } from '../testFixtures';
+
+import '../mocks/svgIcons';
 
 // Mock GraduatedIcons to isolate legend rendering behavior
 jest.mock('../../src/components/GraduatedIcons', () => {
@@ -47,8 +48,6 @@ jest.mock('@material-ui/icons/MapTwoTone', () => {
   MockMapIcon.displayName = 'MockMapIcon';
   return { __esModule: true, default: MockMapIcon };
 });
-
-import '../mocks/svgIcons';
 
 // Stable reference to avoid infinite useEffect loop from default `layerVisibility = {}`
 const EMPTY_VISIBILITY: Record<string, boolean> = {};
@@ -620,9 +619,9 @@ describe('MultiLegend', () => {
       );
       userEvent.click(screen.getByText('Legend'));
       // Name appears in both the simple row and the single-value size swatch row
-      expect(screen.getAllByText('Simple Single').length).toBeGreaterThanOrEqual(
-        1,
-      );
+      expect(
+        screen.getAllByText('Simple Single').length,
+      ).toBeGreaterThanOrEqual(1);
       expect(screen.queryByTestId('graduated-icons')).not.toBeInTheDocument();
     });
 
