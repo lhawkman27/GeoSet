@@ -304,6 +304,14 @@ export default function transformProps(chartProps: ChartProps) {
     (col: any) => col.column_name || col.label || col,
   );
 
+  // Allowlist for lasso export: only hover and additional details columns.
+  // Styling inputs (colorByValue, pointSize, textLabel, dimension) are
+  // excluded — users care about data columns, not rendering config.
+  const exportColumnNames = [
+    ...hoverColumnNames,
+    ...featureInfoColumnNames,
+  ].filter((v, i, a) => a.indexOf(v) === i);
+
   if (!Array.isArray(rawFeatures) || rawFeatures.length === 0) {
     console.warn('🚨 No valid GeoJSON features found');
   }
@@ -529,6 +537,7 @@ export default function transformProps(chartProps: ChartProps) {
     legend,
     hoverColumnNames,
     featureInfoColumnNames,
+    exportColumnNames,
     limitReached,
     visualConfig: {
       dimension,
