@@ -79,6 +79,17 @@ Columns to display in the click popup when a feature is clicked.
 
 Only visible when the **MVT** layer type is selected. Enter the URL template for the vector tile server. The URL must include `{z}/{x}/{y}` placeholders (e.g. `https://example.com/tiles/{z}/{x}/{y}.pbf`).
 
+### Sublayer Type
+
+Only visible when the **MVT** layer type is selected. Controls which geometry type to render from the MVT tiles.
+
+| Option   | Description                                                    |
+|----------|----------------------------------------------------------------|
+| **Auto** | Renders all geometry types (points, lines, and polygons).      |
+| **Point** | Renders only Point and MultiPoint features from the tiles.    |
+| **Line**  | Renders only LineString and MultiLineString features.         |
+| **Polygon** | Renders only Polygon and MultiPolygon features.            |
+
 ## GeoJSON Config
 
 The **GeoJSON Config** editor controls how features are styled and labeled. It accepts a JSON object with the following top-level keys.

@@ -329,12 +329,63 @@ export function getLayer(
     const tileUrl = fd.mvt_tile_url;
     if (!tileUrl) return null;
 
+    const sublayerType = fd.mvt_sublayer_type || 'GeoJSON';
+
+    // Build renderSubLayers to filter geometry types when a specific
+    // sublayer type is selected. When 'GeoJSON' (Auto), the default
+    // GeoJsonLayer sublayer renders all geometry types.
+    const geometryFilter: Record<string, string[]> = {
+      Point: ['Point', 'MultiPoint'],
+      Line: ['LineString', 'MultiLineString'],
+      Polygon: ['Polygon', 'MultiPolygon'],
+    };
+    const allowedTypes = geometryFilter[sublayerType];
+    type RGBA = [number, number, number, number];
+    const fill = fillColorArray as RGBA;
+    const stroke = strokeColorArray as RGBA;
+
+    const renderSubLayers =
+      sublayerType === 'GeoJSON'
+        ? undefined
+        : (props: any) => {
+            const { data } = props;
+            if (!data) return null;
+
+            // MVTLayer passes GeoJSON features — filter to selected type
+            const features = Array.isArray(data) ? data : [];
+            const filtered = features.filter(
+              (f: any) =>
+                f.geometry && allowedTypes.includes(f.geometry.type),
+            );
+            if (!filtered.length) return null;
+
+            return new GeoJsonLayer({
+              ...props,
+              id: `${props.id}-${sublayerType.toLowerCase()}`,
+              data: filtered,
+              getFillColor: fill,
+              getLineColor: stroke,
+              getLineWidth: lineWidth ?? 1,
+              lineWidthUnits: 'pixels' as const,
+              lineWidthMinPixels: 1,
+              pointRadiusUnits: 'pixels' as const,
+              getPointRadius: Number(visualConfig.pointSize) || 5,
+              pointRadiusMinPixels: 1,
+            });
+          };
+
     return new MVTLayer({
       id: `mvt-layer-${fd.slice_id}`,
       data: tileUrl,
       getFillColor: fillColorArray as [number, number, number, number],
       getLineColor: strokeColorArray as [number, number, number, number],
       lineWidthMinPixels: lineWidth ?? 1,
+      ...(renderSubLayers ? { renderSubLayers } : {}),
+      updateTriggers: {
+        renderSubLayers: [sublayerType],
+        getFillColor: [fillColorArray],
+        getLineColor: [strokeColorArray],
+      },
       ...baseLayerProps,
     });
   }

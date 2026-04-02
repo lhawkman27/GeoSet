@@ -48,6 +48,13 @@ const geoJsonLayers: [string, string][] = [
   ['MVT', 'MVT (Vector Tiles)'],
 ];
 
+const mvtSublayerTypes: [string, string][] = [
+  ['GeoJSON', 'Auto (All Geometry Types)'],
+  ['Point', 'Point'],
+  ['Line', 'Line'],
+  ['Polygon', 'Polygon'],
+];
+
 const defaultGeojsonConfig = JSON.stringify(
   {
     globalColoring: {
@@ -149,6 +156,27 @@ const config: ControlPanelConfig = {
               default: '',
               description: t(
                 'URL template for the MVT tile server. Must include {z}/{x}/{y} placeholders. Example: https://example.com/tiles/{z}/{x}/{y}.pbf',
+              ),
+              visibility: ({ controls }: { controls: any }) =>
+                controls?.geoJsonLayer?.value === 'MVT',
+            },
+          },
+        ],
+        [
+          {
+            name: 'mvt_sublayer_type',
+            config: {
+              type: 'SelectControl',
+              freeForm: false,
+              label: t('Sublayer Type'),
+              renderTrigger: true,
+              clearable: false,
+              default: 'GeoJSON',
+              choices: mvtSublayerTypes,
+              description: t(
+                'Select which geometry type to render from the MVT tiles. ' +
+                  '"Auto" renders all geometry types (points, lines, and polygons). ' +
+                  'Choose a specific type to filter to only that geometry.',
               ),
               visibility: ({ controls }: { controls: any }) =>
                 controls?.geoJsonLayer?.value === 'MVT',
