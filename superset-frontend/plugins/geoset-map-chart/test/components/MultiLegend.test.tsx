@@ -12,6 +12,8 @@ import {
   GREEN,
 } from '../testFixtures';
 
+import '../mocks/svgIcons';
+
 // Mock Material-UI icon to avoid transform issues
 jest.mock('@material-ui/icons/MapTwoTone', () => {
   const MockMapIcon = (props: any) => (
@@ -20,8 +22,6 @@ jest.mock('@material-ui/icons/MapTwoTone', () => {
   MockMapIcon.displayName = 'MockMapIcon';
   return { __esModule: true, default: MockMapIcon };
 });
-
-import '../mocks/svgIcons';
 
 // Stable reference to avoid infinite useEffect loop from default `layerVisibility = {}`
 const EMPTY_VISIBILITY: Record<string, boolean> = {};

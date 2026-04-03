@@ -8,9 +8,7 @@ export default function buildQuery(formData: QueryFormData) {
     return buildQueryContext(formData, baseQueryObject => [
       {
         ...baseQueryObject,
-        columns: [
-          { label: '_mvt', sqlExpression: '1', expressionType: 'SQL' },
-        ],
+        columns: [{ label: 'mvt', sqlExpression: '1', expressionType: 'SQL' }],
         metrics: [],
         groupby: [],
         row_limit: 1,

@@ -28,6 +28,7 @@ import {
 } from '@deck.gl/layers';
 import { PathStyleExtension } from '@deck.gl/extensions';
 import { MVTLayer } from '@deck.gl/geo-layers';
+import { MVTLoader } from '@loaders.gl/mvt';
 // ignoring the eslint error below since typescript prefers 'geojson' to '@types/geojson'
 // eslint-disable-next-line import/no-unresolved
 import { Feature, Geometry, GeoJsonProperties } from 'geojson';
@@ -271,6 +272,7 @@ export function getLayer(
   } = visualConfig;
 
   const fd = formData;
+
   // Use JSON-config colors first
   const isMetric = Boolean(metric?.valueColumn);
 
@@ -326,10 +328,10 @@ export function getLayer(
 
   // --- MVT fast path — tiles come from an external URL, no Superset features needed ---
   if (requestedLayerType === 'MVT') {
-    const tileUrl = fd.mvt_tile_url;
+    const tileUrl = fd.mvtTileUrl || fd.mvt_tile_url;
     if (!tileUrl) return null;
 
-    const sublayerType = fd.mvt_sublayer_type || 'GeoJSON';
+    const sublayerType = fd.mvtSublayerType || fd.mvt_sublayer_type || 'GeoJSON';
 
     // Build renderSubLayers to filter geometry types when a specific
     // sublayer type is selected. When 'GeoJSON' (Auto), the default
@@ -377,6 +379,18 @@ export function getLayer(
     return new MVTLayer({
       id: `mvt-layer-${fd.slice_id}`,
       data: tileUrl,
+      // Parse MVT tiles on the main thread to avoid CSP issues with
+      // loading the loaders.gl worker script from unpkg.com CDN.
+      // This is simpler for open-source deployments since users don't
+      // need to whitelist external CDN domains in their CSP config.
+      loaders: [MVTLoader],
+      loadOptions: {
+        worker: false,
+        mvt: { shape: 'geojson' },
+      },
+      // Use GeoJSON format so renderSubLayers receives feature objects
+      // with .geometry.type for geometry type filtering.
+      binary: false,
       getFillColor: fillColorArray as [number, number, number, number],
       getLineColor: strokeColorArray as [number, number, number, number],
       lineWidthMinPixels: lineWidth ?? 1,

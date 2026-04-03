@@ -29,7 +29,7 @@ __GeoSet brings robust geospatial visualization capabilities to [Apache Superset
 
 ## What is GeoSet?
 
-GeoSet bridges the gap between Superset and GIS tooling. This is accomplished by extending Apache Superset with custom deck.gl-based map visualization plugins purpose-built for geospatial data. It allows users to visualize points, lines, and polygons stored natively within PostGIS's `Geography` or `Geometry` data types. Features include:
+GeoSet bridges the gap between Superset and GIS tooling. This is accomplished by extending Apache Superset with custom deck.gl-based map visualization plugins purpose-built for geospatial data. It allows users to visualize points, lines, and polygons stored natively within PostGIS's `Geography` or `Geometry` data types, as well as Mapbox Vector Tiles (MVT) from external tile servers. Features include:
 
 - Single and multilayer maps
 - Visibility toggling by zoom
@@ -40,6 +40,7 @@ GeoSet bridges the gap between Superset and GIS tooling. This is accomplished by
 - Native dashboard integration
 - Lasso select with CSV/Excel export
 - Text Overlay Formatting
+- MVT (Mapbox Vector Tiles) layer for rendering vector tiles from external tile servers
 
 <p align="center">
   <img src="docs/images/geoset-example-dashboard-demo.gif" alt="GeoSet Example Dashboard Demo" width="1000" />

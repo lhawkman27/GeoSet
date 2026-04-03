@@ -28,6 +28,7 @@
     "@deck.gl-community/editable-layers": "^9.2.8",
     "@deck.gl/aggregation-layers": "^9.1.14",
     "@deck.gl/geo-layers": "^9.1.14",
+    "@loaders.gl/mvt": "^4.3.4",
     "@deck.gl/core": "^9.1.14",
     "@deck.gl/extensions": "^9.1.14",
     "@deck.gl/layers": "^9.1.14",

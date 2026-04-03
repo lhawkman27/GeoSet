@@ -139,7 +139,11 @@ const config: ControlPanelConfig = {
               clearable: false,
               default: 'Polygon',
               choices: geoJsonLayers,
-              rerender: ['textLabelColumn'],
+              rerender: [
+                'textLabelColumn',
+                'mvt_tile_url',
+                'mvt_sublayer_type',
+              ],
               description: t(
                 'Select the Geospatial data layer type to render: Polygon, Line, Point, Text Overlay, GeoJSON, or MVT.',
               ),
@@ -155,7 +159,7 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
               default: '',
               description: t(
-                'URL template for the MVT tile server. Must include {z}/{x}/{y} placeholders. Example: https://example.com/tiles/{z}/{x}/{y}.pbf',
+                'URL template for the MVT tile server. Must include {z}/{x}/{y} placeholders. Example: http://localhost:3000/my_table/{z}/{x}/{y}',
               ),
               visibility: ({ controls }: { controls: any }) =>
                 controls?.geoJsonLayer?.value === 'MVT',
