@@ -355,10 +355,6 @@ const DeckMulti = (props: DeckMultiProps) => {
                   handleFeatureClick(info, sliceFeatureInfoColumnNames),
               );
 
-              if (!newLayer) {
-                return null;
-              }
-
               const payloadData = payload?.data || [];
               const geometryType = getGeometryType(payloadData[0]?.geojson);
               let transformPropsGeojsonLayer =
@@ -483,13 +479,15 @@ const DeckMulti = (props: DeckMultiProps) => {
                 maxZoom: zoomSlider[1],
               };
 
-              const newLayerStates = layerStatesGenerator(
-                newLayer,
-                newLayerStateOptions,
-              );
+              // When the layer has no renderable data, return an entry with
+              // empty layerStates so the legend can show it as "loaded but
+              // empty" instead of spinning forever.
+              const newLayerStates = newLayer
+                ? layerStatesGenerator(newLayer, newLayerStateOptions)
+                : [];
 
               if (!newLayerStates.length) {
-                return null;
+                legendEntry.empty = true;
               }
 
               const layerFeatures: JsonObject[] =
