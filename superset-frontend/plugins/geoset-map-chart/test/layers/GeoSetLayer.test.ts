@@ -21,6 +21,7 @@ import { GeoJsonFeature } from '../../src/types';
 
 // Import after mocks
 import {
+  buildGeoSetMvtTileUrl,
   getLayer,
   getLayerStates,
 } from '../../src/layers/GeoSetLayer/GeoSetLayer';
@@ -51,6 +52,14 @@ jest.mock('@deck.gl/layers', () => ({
   IconLayer: mockMakeLayer('IconLayer'),
   LineLayer: mockMakeLayer('LineLayer'),
   PathLayer: mockMakeLayer('PathLayer'),
+}));
+
+jest.mock('@deck.gl/geo-layers', () => ({
+  MVTLayer: mockMakeLayer('MVTLayer'),
+}));
+
+jest.mock('@loaders.gl/mvt', () => ({
+  MVTLoader: { id: 'mvt' },
 }));
 
 jest.mock('@deck.gl/extensions', () => ({
@@ -190,6 +199,30 @@ describe('getLayerStates', () => {
 });
 
 describe('getLayer', () => {
+  describe('buildGeoSetMvtTileUrl', () => {
+    it('builds a Superset MVT endpoint URL from datasource and geometry column', () => {
+      expect(
+        buildGeoSetMvtTileUrl({
+          datasource: '12__table',
+          geojson: { column_name: 'observation_point' },
+        } as unknown as QueryFormData),
+      ).toBe(
+        '/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?geometry_column=observation_point',
+      );
+    });
+
+    it('returns undefined when datasource or geometry column is missing', () => {
+      expect(
+        buildGeoSetMvtTileUrl({ datasource: '12__table' } as QueryFormData),
+      ).toBeUndefined();
+      expect(
+        buildGeoSetMvtTileUrl({
+          geojson: { column_name: 'observation_point' },
+        } as unknown as QueryFormData),
+      ).toBeUndefined();
+    });
+  });
+
   describe('returns null for empty/missing features', () => {
     it('returns null when payload has no features', () => {
       const result = getLayer(
@@ -211,6 +244,100 @@ describe('getLayer', () => {
         baseCategories,
       );
       expect(result).toBeNull();
+    });
+  });
+
+  describe('MVT layer', () => {
+    it('returns null when no tile URL is configured', () => {
+      const result = getLayer(
+        { ...baseFd, geoJsonLayer: 'MVT' } as QueryFormData,
+        { data: {} },
+        noopOnAddFilter,
+        noopSetTooltip,
+        baseCategories,
+      );
+      expect(result).toBeNull();
+    });
+
+    it('creates an MVTLayer without requiring Superset features', () => {
+      const result = getLayer(
+        {
+          ...baseFd,
+          geoJsonLayer: 'MVT',
+          mvt_tile_url: 'http://localhost:3000/source/{z}/{x}/{y}',
+        } as QueryFormData,
+        { data: {} },
+        noopOnAddFilter,
+        noopSetTooltip,
+        baseCategories,
+      ) as any;
+
+      // eslint-disable-next-line no-underscore-dangle
+      expect(result.constructor.__mockName).toBe('MVTLayer');
+      expect(result.props.data).toBe(
+        'http://localhost:3000/source/{z}/{x}/{y}',
+      );
+      expect(result.props.binary).toBe(false);
+      expect(result.props.loadOptions).toMatchObject({
+        worker: false,
+        mvt: { shape: 'geojson' },
+      });
+      expect(result.props.renderSubLayers).toBeUndefined();
+    });
+
+    it('prefers the Superset dataset MVT endpoint when available', () => {
+      const result = getLayer(
+        {
+          ...baseFd,
+          datasource: '12__table',
+          geojson: { column_name: 'observation_point' },
+          geoJsonLayer: 'MVT',
+          mvt_tile_url: 'http://localhost:3000/source/{z}/{x}/{y}',
+        } as QueryFormData,
+        { data: {} },
+        noopOnAddFilter,
+        noopSetTooltip,
+        baseCategories,
+      ) as any;
+
+      expect(result.props.data).toBe(
+        '/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?geometry_column=observation_point',
+      );
+    });
+
+    it('filters decoded MVT features by selected geometry type', () => {
+      const result = getLayer(
+        {
+          ...baseFd,
+          geoJsonLayer: 'MVT',
+          mvt_tile_url: 'http://localhost:3000/source/{z}/{x}/{y}',
+          mvt_sublayer_type: 'Polygon',
+        } as QueryFormData,
+        { data: {} },
+        noopOnAddFilter,
+        noopSetTooltip,
+        baseCategories,
+      ) as any;
+
+      const sublayer = result.props.renderSubLayers({
+        id: 'tile-1',
+        data: [
+          makeFeature('inside', '1', 'Polygon', [
+            [
+              [0, 0],
+              [1, 0],
+              [1, 1],
+              [0, 0],
+            ],
+          ]),
+          makeFeature('outside', '2', 'Point'),
+        ],
+      });
+
+      // eslint-disable-next-line no-underscore-dangle
+      expect(sublayer.constructor.__mockName).toBe('GeoJsonLayer');
+      expect(sublayer.props.data).toHaveLength(1);
+      expect(sublayer.props.data[0].geometry.type).toBe('Polygon');
     });
   });
 

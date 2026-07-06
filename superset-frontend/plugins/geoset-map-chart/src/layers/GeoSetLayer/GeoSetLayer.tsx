@@ -65,6 +65,7 @@ import {
   handleLassoPolygonComplete,
   projectAnchorToScreen,
 } from '../../utils/lassoSelection';
+import { fetchMvtLassoFeatures } from '../../utils/mvtLassoSelection';
 import { GeoJsonFeature, LayerState } from '../../types';
 import { useDebouncedValue } from '../../utils/hooks';
 import { normalizeRGBA } from '../../utils/colorsFallback';
@@ -126,6 +127,29 @@ const propertyMap = {
   stroke_color_picker: 'strokeColor',
   'stroke-width': 'strokeWidth',
 };
+
+function getColumnName(column: any): string | undefined {
+  if (!column) return undefined;
+  if (typeof column === 'string') return column;
+  return column.column_name || column.label || column.sqlExpression;
+}
+
+export function buildGeoSetMvtTileUrl(
+  formData: QueryFormData,
+): string | undefined {
+  const { datasource } = formData;
+  const datasourceId =
+    typeof datasource === 'string' ? datasource.split('__')[0] : undefined;
+  const geometryColumn = getColumnName(formData.geojson);
+
+  if (!datasourceId || !geometryColumn) {
+    return undefined;
+  }
+
+  return `/api/v1/geoset_map/mvt/${encodeURIComponent(
+    datasourceId,
+  )}/{z}/{x}/{y}?geometry_column=${encodeURIComponent(geometryColumn)}`;
+}
 
 const alterProps = (props: JsonObject = {}, propOverrides: JsonObject = {}) => {
   const newProps: JsonObject = {};
@@ -328,10 +352,12 @@ export function getLayer(
 
   // --- MVT fast path — tiles come from an external URL, no Superset features needed ---
   if (requestedLayerType === 'MVT') {
-    const tileUrl = fd.mvtTileUrl || fd.mvt_tile_url;
+    const tileUrl =
+      buildGeoSetMvtTileUrl(fd) || fd.mvtTileUrl || fd.mvt_tile_url;
     if (!tileUrl) return null;
 
-    const sublayerType = fd.mvtSublayerType || fd.mvt_sublayer_type || 'GeoJSON';
+    const sublayerType =
+      fd.mvtSublayerType || fd.mvt_sublayer_type || 'GeoJSON';
 
     // Build renderSubLayers to filter geometry types when a specific
     // sublayer type is selected. When 'GeoJSON' (Auto), the default
@@ -356,8 +382,7 @@ export function getLayer(
             // MVTLayer passes GeoJSON features — filter to selected type
             const features = Array.isArray(data) ? data : [];
             const filtered = features.filter(
-              (f: any) =>
-                f.geometry && allowedTypes.includes(f.geometry.type),
+              (f: any) => f.geometry && allowedTypes.includes(f.geometry.type),
             );
             if (!filtered.length) return null;
 
@@ -1059,13 +1084,43 @@ const DeckGLGeoJson = (props: DeckGLGeoJsonProps) => {
     deactivateLasso,
   } = useLassoSelection({
     onPolygonComplete: async polygon => {
-      const allFeatures = (payload?.data?.features as GeoJsonFeature[]) || [];
-
       const hiddenCategoryKeys = new Set<string>(
         Object.entries(categories)
           .filter(([, cat]) => cat.enabled === false)
           .map(([key]) => key),
       );
+
+      if (formData.geoJsonLayer === 'MVT') {
+        lassoRequestIdRef.current += 1;
+        const requestId = lassoRequestIdRef.current;
+        try {
+          const allFeatures = await fetchMvtLassoFeatures(
+            formData,
+            polygon,
+            propVisualConfig?.dimension as string | undefined,
+          );
+          if (lassoRequestIdRef.current !== requestId) return;
+
+          await handleLassoPolygonComplete(
+            polygon,
+            allFeatures,
+            {
+              dimension: propVisualConfig?.dimension as string | undefined,
+              hiddenCategoryKeys,
+            },
+            lassoRequestIdRef,
+            { setSelectedFeatures, setAnchorGeoCoord },
+          );
+        } catch (err) {
+          if (lassoRequestIdRef.current !== requestId) return;
+          console.warn('[MVT lasso] Failed to fetch selected features', err);
+          setSelectedFeatures([]);
+          setAnchorGeoCoord(polygon[polygon.length - 1] ?? null);
+        }
+        return;
+      }
+
+      const allFeatures = (payload?.data?.features as GeoJsonFeature[]) || [];
 
       await handleLassoPolygonComplete(
         polygon,
