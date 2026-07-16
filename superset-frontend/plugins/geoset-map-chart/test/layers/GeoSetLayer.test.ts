@@ -171,6 +171,14 @@ const baseCategories: Record<string, { color: number[]; enabled: boolean }> = {
 const noopSetTooltip = jest.fn();
 const noopOnAddFilter = jest.fn();
 
+function getMvtUrlContext(url: string) {
+  const params = new URLSearchParams(url.split('?')[1]);
+  return {
+    geometryColumn: params.get('geometry_column'),
+    queryContext: JSON.parse(params.get('mvt_query_context') || '{}'),
+  };
+}
+
 // ── Tests ──
 
 describe('getLayerStates', () => {
@@ -201,14 +209,42 @@ describe('getLayerStates', () => {
 describe('getLayer', () => {
   describe('buildGeoSetMvtTileUrl', () => {
     it('builds a Superset MVT endpoint URL from datasource and geometry column', () => {
-      expect(
-        buildGeoSetMvtTileUrl({
-          datasource: '12__table',
-          geojson: { column_name: 'observation_point' },
-        } as unknown as QueryFormData),
-      ).toBe(
-        '/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?geometry_column=observation_point',
+      const url = buildGeoSetMvtTileUrl({
+        datasource: '12__table',
+        geojson: { column_name: 'observation_point' },
+      } as unknown as QueryFormData);
+
+      expect(url).toContain('/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?');
+      expect(getMvtUrlContext(url as string).geometryColumn).toBe(
+        'observation_point',
       );
+    });
+
+    it('includes filters and hover columns in the MVT query context', () => {
+      const url = buildGeoSetMvtTileUrl({
+        datasource: '12__table',
+        geojson: { column_name: 'observation_point' },
+        geojsonConfig: JSON.stringify({
+          colorByCategory: { dimension: 'storm_name' },
+        }),
+        adhoc_filters: [{ expressionType: 'SIMPLE', subject: 'storm_name' }],
+        hoverDataColumns: [{ column_name: 'storm_name' }],
+        featureInfoColumns: [{ column_name: 'nhc_identifier' }],
+      } as unknown as QueryFormData);
+
+      const { queryContext } = getMvtUrlContext(url as string);
+      expect(queryContext.adhoc_filters).toEqual([
+        { expressionType: 'SIMPLE', subject: 'storm_name' },
+      ]);
+      expect(queryContext.geojsonConfig).toBe(
+        JSON.stringify({ colorByCategory: { dimension: 'storm_name' } }),
+      );
+      expect(queryContext.hoverDataColumns).toEqual([
+        { column_name: 'storm_name' },
+      ]);
+      expect(queryContext.featureInfoColumns).toEqual([
+        { column_name: 'nhc_identifier' },
+      ]);
     });
 
     it('returns undefined when datasource or geometry column is missing', () => {
@@ -300,9 +336,36 @@ describe('getLayer', () => {
         baseCategories,
       ) as any;
 
-      expect(result.props.data).toBe(
-        '/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?geometry_column=observation_point',
+      expect(result.props.data).toContain(
+        '/api/v1/geoset_map/mvt/12/{z}/{x}/{y}?',
       );
+      expect(getMvtUrlContext(result.props.data).geometryColumn).toBe(
+        'observation_point',
+      );
+    });
+
+    it('colors MVT features by category when category properties are present', () => {
+      const result = getLayer(
+        {
+          ...baseFd,
+          datasource: '12__table',
+          geojson: { column_name: 'observation_point' },
+          geoJsonLayer: 'MVT',
+        } as QueryFormData,
+        { data: {} },
+        noopOnAddFilter,
+        noopSetTooltip,
+        {
+          apple: { color: [11, 22, 33, 255], enabled: true },
+        },
+        { dimension: 'category' },
+      ) as any;
+
+      expect(
+        result.props.getFillColor({
+          properties: { category: 'Apple' },
+        }),
+      ).toEqual([11, 22, 33, 255]);
     });
 
     it('filters decoded MVT features by selected geometry type', () => {

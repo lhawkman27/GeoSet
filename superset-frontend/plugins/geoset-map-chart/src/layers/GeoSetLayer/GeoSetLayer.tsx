@@ -146,9 +146,25 @@ export function buildGeoSetMvtTileUrl(
     return undefined;
   }
 
+  const queryContext = {
+    adhoc_filters: formData.adhoc_filters,
+    extra_filters: formData.extra_filters,
+    extra_form_data: formData.extra_form_data,
+    dimension: formData.dimension,
+    filters: formData.filters,
+    geojsonConfig: formData.geojsonConfig,
+    granularity_sqla: formData.granularity_sqla,
+    time_grain_sqla: formData.time_grain_sqla,
+    time_range: formData.time_range,
+    hoverDataColumns: formData.hoverDataColumns,
+    featureInfoColumns: formData.featureInfoColumns,
+  };
+
   return `/api/v1/geoset_map/mvt/${encodeURIComponent(
     datasourceId,
-  )}/{z}/{x}/{y}?geometry_column=${encodeURIComponent(geometryColumn)}`;
+  )}/{z}/{x}/{y}?geometry_column=${encodeURIComponent(
+    geometryColumn,
+  )}&mvt_query_context=${encodeURIComponent(JSON.stringify(queryContext))}`;
 }
 
 const alterProps = (props: JsonObject = {}, propOverrides: JsonObject = {}) => {
@@ -371,6 +387,29 @@ export function getLayer(
     type RGBA = [number, number, number, number];
     const fill = fillColorArray as RGBA;
     const stroke = strokeColorArray as RGBA;
+    const getMvtCategoryColor = (feature: any): RGBA => {
+      if (!dimension) {
+        return fill;
+      }
+
+      const rawCategory = feature?.properties?.[dimension];
+      if (rawCategory == null) {
+        return fill;
+      }
+
+      const key = String(rawCategory).trim().toLowerCase();
+      const category = categories?.[key];
+
+      if (!category) {
+        return fill;
+      }
+
+      if (category.enabled === false) {
+        return [category.color[0], category.color[1], category.color[2], 0];
+      }
+
+      return (category.color || fill) as RGBA;
+    };
 
     const renderSubLayers =
       sublayerType === 'GeoJSON'
@@ -390,7 +429,7 @@ export function getLayer(
               ...props,
               id: `${props.id}-${sublayerType.toLowerCase()}`,
               data: filtered,
-              getFillColor: fill,
+              getFillColor: getMvtCategoryColor,
               getLineColor: stroke,
               getLineWidth: lineWidth ?? 1,
               lineWidthUnits: 'pixels' as const,
@@ -416,13 +455,13 @@ export function getLayer(
       // Use GeoJSON format so renderSubLayers receives feature objects
       // with .geometry.type for geometry type filtering.
       binary: false,
-      getFillColor: fillColorArray as [number, number, number, number],
+      getFillColor: getMvtCategoryColor,
       getLineColor: strokeColorArray as [number, number, number, number],
       lineWidthMinPixels: lineWidth ?? 1,
       ...(renderSubLayers ? { renderSubLayers } : {}),
       updateTriggers: {
         renderSubLayers: [sublayerType],
-        getFillColor: [fillColorArray],
+        getFillColor: [fillColorArray, categories, dimension],
         getLineColor: [strokeColorArray],
       },
       ...baseLayerProps,

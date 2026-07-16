@@ -1,6 +1,9 @@
+import hashlib
+import json
 import logging
 import os
 import re
+from copy import deepcopy
 from collections.abc import Callable
 
 import sqlalchemy as sa
@@ -14,7 +17,7 @@ from superset.constants import MODEL_API_RW_METHOD_PERMISSION_MAP
 from superset.daos.datasource import DatasourceDAO
 from superset.daos.exceptions import DatasourceNotFound, DatasourceTypeNotSupportedError
 from superset.exceptions import QueryObjectValidationError, SupersetSecurityException
-from superset.extensions import event_logger
+from superset.extensions import cache_manager, event_logger
 from superset.geoset_map.schemas import (
     GeoSetLayerV1Schema,
     GeoSetLayerV2Schema,
@@ -23,12 +26,19 @@ from superset.geoset_map.schemas import (
     GeoSetLayerV5Schema,
     MapboxApiKeySchema,
 )
-from superset.utils.core import DatasourceType
+from superset.utils.core import (
+    DatasourceType,
+    get_user_id,
+    merge_extra_filters,
+    split_adhoc_filters_into_base_filters,
+)
 from superset.views.base_api import BaseSupersetApi, requires_json, statsd_metrics
 
 logger = logging.getLogger(__name__)
 
 VERSION_PATTERN = re.compile(r"^v(\d+)$")
+MVT_CACHE_DEFAULT_TIMEOUT = 300
+MVT_QUERY_CONTEXT_PARAM = "mvt_query_context"
 
 
 def parse_version_number(version: str) -> int | None:
@@ -80,6 +90,83 @@ def _normalize_cte_fragment(cte: str) -> str:
     return re.sub(r"^WITH\s+", "", cte, flags=re.IGNORECASE)
 
 
+def _wrap_virtual_source_sql(source_sql: str) -> str:
+    source_sql = source_sql.strip().rstrip(";")
+    if re.match(r"^(SELECT|WITH)\b", source_sql, flags=re.IGNORECASE):
+        return f"({source_sql}) AS virtual_table"
+
+    return source_sql
+
+
+def _get_column_name(column: object) -> str | None:
+    if not column:
+        return None
+    if isinstance(column, str):
+        return column
+    if isinstance(column, dict):
+        return (
+            column.get("column_name")
+            or column.get("label")
+            or column.get("sqlExpression")
+        )
+    return None
+
+
+def _unique_column_names(columns: list[object]) -> list[str]:
+    seen: set[str] = set()
+    names: list[str] = []
+    for column in columns:
+        name = _get_column_name(column)
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+def get_mvt_query_context() -> dict[str, object]:
+    raw_context = request.args.get(MVT_QUERY_CONTEXT_PARAM)
+    if not raw_context:
+        return {}
+
+    try:
+        context = json.loads(raw_context)
+    except json.JSONDecodeError as ex:
+        raise ValueError("Invalid MVT query context") from ex
+
+    if not isinstance(context, dict):
+        raise ValueError("Invalid MVT query context")
+
+    return context
+
+
+def get_mvt_property_columns(query_context: dict[str, object]) -> list[str]:
+    geojson_config = query_context.get("geojsonConfig") or {}
+    if isinstance(geojson_config, str):
+        try:
+            geojson_config = json.loads(geojson_config)
+        except json.JSONDecodeError:
+            geojson_config = {}
+
+    color_by_category = (
+        geojson_config.get("colorByCategory", {})
+        if isinstance(geojson_config, dict)
+        else {}
+    )
+    category_dimension = (
+        color_by_category.get("dimension")
+        if isinstance(color_by_category, dict)
+        else None
+    ) or query_context.get("dimension")
+
+    return _unique_column_names(
+        [
+            category_dimension,
+            *(query_context.get("hoverDataColumns") or []),
+            *(query_context.get("featureInfoColumns") or []),
+        ]
+    )
+
+
 def quote_physical_table_name(datasource: SqlaTable) -> str:
     quote = datasource.database.quote_identifier
     table_name = _quote_identifier(datasource.table_name, quote)
@@ -94,7 +181,36 @@ def get_mvt_source_sql(
     datasource: SqlaTable,
     template_processor: object,
     engine: sa.engine.Engine,
+    geometry_column: str,
+    query_context: dict[str, object],
+    property_columns: list[str],
 ) -> tuple[str, str | None]:
+    if query_context:
+        form_data = deepcopy(query_context)
+        merge_extra_filters(form_data)
+        split_adhoc_filters_into_base_filters(form_data, datasource.database.backend)
+        columns = _unique_column_names([geometry_column, *property_columns])
+        sqla_query = datasource.get_sqla_query(
+            columns=columns,
+            extras={
+                "where": form_data.get("where"),
+                "having": form_data.get("having"),
+                "time_grain_sqla": form_data.get("time_grain_sqla"),
+            },
+            filter=form_data.get("filters"),
+            granularity=form_data.get("granularity_sqla"),
+            is_timeseries=False,
+            metrics=[],
+            row_limit=None,
+        )
+        source_sql = datasource.database.compile_sqla_query(
+            sqla_query.sqla_query,
+            catalog=datasource.catalog,
+            schema=datasource.schema,
+            is_virtual=bool(datasource.sql),
+        )
+        return _wrap_virtual_source_sql(source_sql), sqla_query.cte
+
     if datasource.kind != DatasourceKind.VIRTUAL:
         return quote_physical_table_name(datasource), None
 
@@ -105,7 +221,7 @@ def get_mvt_source_sql(
             compile_kwargs={"literal_binds": True},
         )
     )
-    return source_sql, cte
+    return _wrap_virtual_source_sql(source_sql), cte
 
 
 def build_mvt_tile_sql(
@@ -113,10 +229,17 @@ def build_mvt_tile_sql(
     source_sql: str,
     geometry_column: str,
     rls_filters: list[str],
+    property_columns: list[str] | None = None,
     cte: str | None = None,
 ) -> str:
     quote = datasource.database.quote_identifier
     geom_expr = f"{_quote_identifier(geometry_column, quote)}::geometry"
+    property_selects = [
+        _quote_identifier(column, quote)
+        for column in property_columns or []
+        if column != geometry_column
+    ]
+    properties_sql = f",\n        {', '.join(property_selects)}" if property_selects else ""
     projected_geom_expr = (
         "ST_Transform("
         f"CASE WHEN ST_SRID({geom_expr}) = 0 "
@@ -134,7 +257,7 @@ def build_mvt_tile_sql(
 
     with_clause = f"{_normalize_cte_fragment(cte)},\nbounds" if cte else "bounds"
 
-    return f"""  # noqa: S608
+    return f"""
 WITH {with_clause} AS (
     SELECT ST_TileEnvelope(:z, :x, :y) AS geom
 ),
@@ -146,13 +269,44 @@ mvtgeom AS (
             4096,
             256,
             true
-        ) AS geom
+        ) AS geom{properties_sql}
     FROM {source_sql}, bounds
     WHERE {" AND ".join(where_clauses)}
 )
 SELECT ST_AsMVT(mvtgeom, 'default', 4096, 'geom') AS tile
 FROM mvtgeom
 """
+
+
+def build_mvt_cache_key(
+    datasource: SqlaTable,
+    z: int,
+    x: int,
+    y: int,
+    geometry_column: str,
+    source_sql: str,
+    cte: str | None,
+    rls_filters: list[str],
+    property_columns: list[str],
+    user_id: int | None,
+) -> str:
+    payload = {
+        "datasource_id": datasource.id,
+        "datasource_changed_on": getattr(datasource, "changed_on", None),
+        "z": z,
+        "x": x,
+        "y": y,
+        "geometry_column": geometry_column,
+        "source_sql": source_sql,
+        "cte": cte,
+        "rls_filters": rls_filters,
+        "property_columns": property_columns,
+        "user_id": user_id,
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+    return f"geoset_mvt:{digest}"
 
 
 class GeoSetMapRestApi(BaseSupersetApi):
@@ -292,11 +446,8 @@ class GeoSetMapRestApi(BaseSupersetApi):
                 schema=datasource.schema,
             ) as engine:
                 template_processor = datasource.get_template_processor()
-                source_sql, cte = get_mvt_source_sql(
-                    datasource,
-                    template_processor,
-                    engine,
-                )
+                query_context = get_mvt_query_context()
+                property_columns = get_mvt_property_columns(query_context)
                 rls_filters = [
                     str(
                         filter_clause.compile(
@@ -308,19 +459,70 @@ class GeoSetMapRestApi(BaseSupersetApi):
                         template_processor
                     )
                 ]
-                sql = build_mvt_tile_sql(
-                    datasource,
-                    source_sql,
-                    geometry_column,
-                    rls_filters,
-                    cte,
-                )
 
-                with engine.connect() as connection:
-                    tile = connection.execute(
-                        sa.text(sql),
-                        {"z": z, "x": x, "y": y},
-                    ).scalar()
+                def fetch_tile(tile_property_columns: list[str]) -> bytes:
+                    nonlocal sql
+
+                    source_sql, cte = get_mvt_source_sql(
+                        datasource,
+                        template_processor,
+                        engine,
+                        geometry_column,
+                        query_context,
+                        tile_property_columns,
+                    )
+                    sql = build_mvt_tile_sql(
+                        datasource,
+                        source_sql,
+                        geometry_column,
+                        rls_filters,
+                        tile_property_columns,
+                        cte,
+                    )
+                    cache_key = build_mvt_cache_key(
+                        datasource,
+                        z,
+                        x,
+                        y,
+                        geometry_column,
+                        source_sql,
+                        cte,
+                        rls_filters,
+                        tile_property_columns,
+                        get_user_id(),
+                    )
+                    cached_tile = cache_manager.data_cache.get(cache_key)
+                    if cached_tile is not None:
+                        return bytes(cached_tile)
+
+                    with engine.connect() as connection:
+                        tile = connection.execute(
+                            sa.text(sql),
+                            {"z": z, "x": x, "y": y},
+                        ).scalar()
+                    tile_bytes = bytes(tile or b"")
+                    cache_manager.data_cache.set(
+                        cache_key,
+                        tile_bytes,
+                        timeout=current_app.config.get(
+                            "GEOSET_MVT_CACHE_TIMEOUT",
+                            MVT_CACHE_DEFAULT_TIMEOUT,
+                        ),
+                    )
+                    return tile_bytes
+
+                try:
+                    tile_bytes = fetch_tile(property_columns)
+                except SQLAlchemyError:
+                    if not property_columns:
+                        raise
+                    logger.warning(
+                        "Failed to generate MVT tile with optional property columns "
+                        "%s; retrying geometry-only tile",
+                        property_columns,
+                        exc_info=True,
+                    )
+                    tile_bytes = fetch_tile([])
         except (QueryObjectValidationError, ValueError) as ex:
             logger.warning(
                 "Invalid MVT tile request for datasource_id=%s z=%s x=%s y=%s: %s",
@@ -358,10 +560,10 @@ class GeoSetMapRestApi(BaseSupersetApi):
             return self.response(500, message="Failed to generate MVT tile")
 
         return Response(
-            bytes(tile or b""),
+            tile_bytes,
             status=200,
             mimetype="application/x-protobuf",
-            headers={"Cache-Control": "public, max-age=60"},
+            headers={"Cache-Control": "private, max-age=60"},
         )
 
     @expose("/mapbox_api_key/", methods=("GET",))
