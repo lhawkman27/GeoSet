@@ -30,6 +30,7 @@ import {
   FC,
 } from 'react';
 import cx from 'classnames';
+import { useSelector } from 'react-redux';
 import { styled, t, useTheme } from '@superset-ui/core';
 import { Icons } from '@superset-ui/core/components/Icons';
 import { EmptyState, Loading } from '@superset-ui/core/components';
@@ -38,6 +39,7 @@ import { VerticalBarProps } from './types';
 import Header from './Header';
 import FilterControls from './FilterControls/FilterControls';
 import CrossFiltersVertical from './CrossFilters/Vertical';
+import { FilterBarDensity, RootState } from '../../../types';
 
 const BarWrapper = styled.div<{ width: number }>`
   width: ${({ theme }) => theme.sizeUnit * 8}px;
@@ -100,12 +102,14 @@ const FilterBarEmptyStateContainer = styled.div`
   margin-top: ${({ theme }) => theme.sizeUnit * 8}px;
 `;
 
-const FilterControlsWrapper = styled.div`
-  ${({ theme }) => `
+const FilterControlsWrapper = styled.div<{ density: FilterBarDensity }>`
+  ${({ theme, density }) => `
     display: flex;
     flex-direction: column;
-    gap: ${theme.sizeUnit * 2}px;
-    padding: ${theme.sizeUnit * 4}px;
+    gap: ${theme.sizeUnit * (density === FilterBarDensity.Compact ? 1 : 2)}px;
+    padding: ${
+      theme.sizeUnit * (density === FilterBarDensity.Compact ? 2 : 4)
+    }px;
     // 108px padding to make room for buttons with position: absolute
     padding-bottom: ${theme.sizeUnit * 27}px;
   `}
@@ -128,6 +132,11 @@ const VerticalFilterBar: FC<VerticalBarProps> = ({
   onClearAllComplete,
 }) => {
   const theme = useTheme();
+  const density = useSelector<RootState, FilterBarDensity>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_density ??
+      FilterBarDensity.Comfortable,
+  );
   const [isScrolling, setIsScrolling] = useState(false);
   const timeout = useRef<any>();
 
@@ -177,7 +186,7 @@ const VerticalFilterBar: FC<VerticalBarProps> = ({
           />
         </FilterBarEmptyStateContainer>
       ) : (
-        <FilterControlsWrapper>
+        <FilterControlsWrapper density={density} data-filter-density={density}>
           <FilterControls
             dataMaskSelected={dataMaskSelected}
             onFilterSelectionChange={onSelectionChange}
@@ -186,7 +195,13 @@ const VerticalFilterBar: FC<VerticalBarProps> = ({
           />
         </FilterControlsWrapper>
       ),
-    [canEdit, dataMaskSelected, filterValues.length, onSelectionChange],
+    [
+      canEdit,
+      dataMaskSelected,
+      density,
+      filterValues.length,
+      onSelectionChange,
+    ],
   );
 
   return (

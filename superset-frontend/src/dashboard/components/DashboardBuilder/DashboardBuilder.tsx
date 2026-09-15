@@ -44,6 +44,7 @@ import { getUrlParam } from 'src/utils/urlUtils';
 import {
   DashboardLayout,
   FilterBarOrientation,
+  FilterBarWidthPreset,
   RootState,
 } from 'src/dashboard/types';
 import {
@@ -88,9 +89,9 @@ const FiltersPanel = styled.div<{ width: number; hidden: boolean }>`
   ${({ hidden }) => hidden && `display: none;`}
 `;
 
-const StickyPanel = styled.div<{ width: number }>`
-  position: sticky;
-  top: -1px;
+const StickyPanel = styled.div<{ width: number; sticky: boolean }>`
+  position: ${({ sticky }) => (sticky ? 'sticky' : 'relative')};
+  top: ${({ sticky }) => (sticky ? '-1px' : '0')};
   width: ${({ width }) => width}px;
   flex: 0 0 ${({ width }) => width}px;
 `;
@@ -361,6 +362,12 @@ const ELEMENT_ON_SCREEN_OPTIONS = {
   threshold: [1],
 };
 
+const FILTER_BAR_WIDTHS: Record<FilterBarWidthPreset, number> = {
+  [FilterBarWidthPreset.Default]: OPEN_FILTER_BAR_WIDTH,
+  [FilterBarWidthPreset.Medium]: 320,
+  [FilterBarWidthPreset.Wide]: 400,
+};
+
 const DashboardBuilder = () => {
   const dispatch = useDispatch();
   const uiConfig = useUiConfig();
@@ -386,6 +393,15 @@ const DashboardBuilder = () => {
   );
   const filterBarOrientation = useSelector<RootState, FilterBarOrientation>(
     ({ dashboardInfo }) => dashboardInfo.filterBarOrientation,
+  );
+  const filterBarWidthPreset = useSelector<RootState, FilterBarWidthPreset>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_width_preset ??
+      FilterBarWidthPreset.Default,
+  );
+  const initialFilterBarWidth = FILTER_BAR_WIDTHS[filterBarWidthPreset];
+  const filterBarSticky = useSelector<RootState, boolean>(
+    ({ dashboardInfo }) => dashboardInfo.metadata?.filter_bar_sticky ?? true,
   );
 
   const handleChangeTab = useCallback(
@@ -579,7 +595,11 @@ const DashboardBuilder = () => {
           hidden={isReport}
           data-test="dashboard-filters-panel"
         >
-          <StickyPanel ref={containerRef} width={filterBarWidth}>
+          <StickyPanel
+            ref={containerRef}
+            width={filterBarWidth}
+            sticky={filterBarSticky}
+          >
             <ErrorBoundary>
               <FilterBar
                 orientation={FilterBarOrientation.Vertical}
@@ -602,6 +622,7 @@ const DashboardBuilder = () => {
       filterBarHeight,
       filterBarOffset,
       isReport,
+      filterBarSticky,
     ],
   );
 
@@ -615,11 +636,16 @@ const DashboardBuilder = () => {
     <DashboardWrapper>
       {isVerticalFilterBarVisible && (
         <ResizableSidebar
-          id={`dashboard:${dashboardId}`}
+          key={filterBarWidthPreset}
+          id={
+            filterBarWidthPreset === FilterBarWidthPreset.Default
+              ? `dashboard:${dashboardId}`
+              : `dashboard:${dashboardId}:${filterBarWidthPreset}`
+          }
           enable={dashboardFiltersOpen}
           minWidth={OPEN_FILTER_BAR_WIDTH}
           maxWidth={OPEN_FILTER_BAR_MAX_WIDTH}
-          initialWidth={OPEN_FILTER_BAR_WIDTH}
+          initialWidth={initialFilterBarWidth}
         >
           {renderChild}
         </ResizableSidebar>

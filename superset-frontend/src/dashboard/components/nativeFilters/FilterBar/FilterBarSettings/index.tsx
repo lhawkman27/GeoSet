@@ -21,9 +21,19 @@ import { useCallback, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { styled, t, useTheme, css } from '@superset-ui/core';
 import { MenuProps } from '@superset-ui/core/components/Menu';
-import { FilterBarOrientation, RootState } from 'src/dashboard/types';
 import {
+  FilterBarDensity,
+  FilterBarOrientation,
+  FilterBarScopeVisibility,
+  FilterBarWidthPreset,
+  RootState,
+} from 'src/dashboard/types';
+import {
+  saveFilterBarDensity,
   saveFilterBarOrientation,
+  saveFilterBarScopeVisibility,
+  saveFilterBarWidthPreset,
+  saveFilterBarSticky,
   saveCrossFiltersSetting,
 } from 'src/dashboard/actions/dashboardInfo';
 import { Icons } from '@superset-ui/core/components/Icons';
@@ -35,7 +45,13 @@ import { useFilterConfigModal } from 'src/dashboard/components/nativeFilters/Fil
 import { useCrossFiltersScopingModal } from '../CrossFilters/ScopingModal/useCrossFiltersScopingModal';
 import FilterConfigurationLink from '../FilterConfigurationLink';
 
-type SelectedKey = FilterBarOrientation | string | number;
+type SelectedKey =
+  | FilterBarDensity
+  | FilterBarOrientation
+  | FilterBarScopeVisibility
+  | FilterBarWidthPreset
+  | string
+  | number;
 
 const StyledMenuLabel = styled.span`
   display: flex;
@@ -50,9 +66,21 @@ const StyledMenuLabel = styled.span`
 const CROSS_FILTERS_MENU_KEY = 'cross-filters-menu-key';
 const CROSS_FILTERS_SCOPING_MENU_KEY = 'cross-filters-scoping-menu-key';
 const ADD_EDIT_FILTERS_MENU_KEY = 'add-edit-filters-menu-key';
+const FILTER_BAR_STICKY_MENU_KEY = 'filter-bar-sticky-menu-key';
 
 const isOrientation = (o: SelectedKey): o is FilterBarOrientation =>
   o === FilterBarOrientation.Vertical || o === FilterBarOrientation.Horizontal;
+
+const isScopeVisibility = (o: SelectedKey): o is FilterBarScopeVisibility =>
+  Object.values(FilterBarScopeVisibility).includes(
+    o as FilterBarScopeVisibility,
+  );
+
+const isWidthPreset = (o: SelectedKey): o is FilterBarWidthPreset =>
+  Object.values(FilterBarWidthPreset).includes(o as FilterBarWidthPreset);
+
+const isDensity = (o: SelectedKey): o is FilterBarDensity =>
+  Object.values(FilterBarDensity).includes(o as FilterBarDensity);
 
 const FilterBarSettings = () => {
   const theme = useTheme();
@@ -65,6 +93,34 @@ const FilterBarSettings = () => {
   );
   const [selectedFilterBarOrientation, setSelectedFilterBarOrientation] =
     useState(filterBarOrientation);
+  const filterBarScopeVisibility = useSelector<
+    RootState,
+    FilterBarScopeVisibility
+  >(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_scope_visibility ??
+      FilterBarScopeVisibility.Group,
+  );
+  const [selectedScopeVisibility, setSelectedScopeVisibility] = useState(
+    filterBarScopeVisibility,
+  );
+  const filterBarWidthPreset = useSelector<RootState, FilterBarWidthPreset>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_width_preset ??
+      FilterBarWidthPreset.Default,
+  );
+  const [selectedWidthPreset, setSelectedWidthPreset] =
+    useState(filterBarWidthPreset);
+  const filterBarDensity = useSelector<RootState, FilterBarDensity>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_density ??
+      FilterBarDensity.Comfortable,
+  );
+  const [selectedDensity, setSelectedDensity] = useState(filterBarDensity);
+  const filterBarSticky = useSelector<RootState, boolean>(
+    ({ dashboardInfo }) => dashboardInfo.metadata?.filter_bar_sticky ?? true,
+  );
+  const [sticky, setSticky] = useState(filterBarSticky);
 
   const [crossFiltersEnabled, setCrossFiltersEnabled] = useState<boolean>(
     isCrossFiltersEnabled,
@@ -119,6 +175,59 @@ const FilterBarSettings = () => {
     [dispatch, filterBarOrientation],
   );
 
+  const updateScopeVisibility = useCallback(
+    async (visibility: FilterBarScopeVisibility) => {
+      if (visibility === filterBarScopeVisibility) {
+        return;
+      }
+      setSelectedScopeVisibility(visibility);
+      try {
+        await dispatch(saveFilterBarScopeVisibility(visibility));
+      } catch {
+        setSelectedScopeVisibility(filterBarScopeVisibility);
+      }
+    },
+    [dispatch, filterBarScopeVisibility],
+  );
+
+  const updateWidthPreset = useCallback(
+    async (preset: FilterBarWidthPreset) => {
+      if (preset === filterBarWidthPreset) {
+        return;
+      }
+      setSelectedWidthPreset(preset);
+      try {
+        await dispatch(saveFilterBarWidthPreset(preset));
+      } catch {
+        setSelectedWidthPreset(filterBarWidthPreset);
+      }
+    },
+    [dispatch, filterBarWidthPreset],
+  );
+
+  const updateDensity = useCallback(
+    async (density: FilterBarDensity) => {
+      if (density === filterBarDensity) return;
+      setSelectedDensity(density);
+      try {
+        await dispatch(saveFilterBarDensity(density));
+      } catch {
+        setSelectedDensity(filterBarDensity);
+      }
+    },
+    [dispatch, filterBarDensity],
+  );
+
+  const toggleSticky = useCallback(async () => {
+    const nextSticky = !sticky;
+    setSticky(nextSticky);
+    try {
+      await dispatch(saveFilterBarSticky(nextSticky));
+    } catch {
+      setSticky(filterBarSticky);
+    }
+  }, [dispatch, filterBarSticky, sticky]);
+
   const handleClick = useCallback(
     (
       selection: Parameters<
@@ -130,6 +239,14 @@ const FilterBarSettings = () => {
         toggleCrossFiltering();
       } else if (isOrientation(selectedKey)) {
         toggleFilterBarOrientation(selectedKey);
+      } else if (isScopeVisibility(selectedKey)) {
+        updateScopeVisibility(selectedKey);
+      } else if (isWidthPreset(selectedKey)) {
+        updateWidthPreset(selectedKey);
+      } else if (isDensity(selectedKey)) {
+        updateDensity(selectedKey);
+      } else if (selectedKey === FILTER_BAR_STICKY_MENU_KEY) {
+        toggleSticky();
       } else if (selectedKey === CROSS_FILTERS_SCOPING_MENU_KEY) {
         openScopingModal();
       } else if (selectedKey === ADD_EDIT_FILTERS_MENU_KEY) {
@@ -140,6 +257,10 @@ const FilterBarSettings = () => {
       openScopingModal,
       toggleCrossFiltering,
       toggleFilterBarOrientation,
+      updateScopeVisibility,
+      updateWidthPreset,
+      updateDensity,
+      toggleSticky,
       openFilterConfigModal,
     ],
   );
@@ -227,10 +348,96 @@ const FilterBarSettings = () => {
         ],
         ...{ 'data-test': 'dropdown-selectable-icon-submenu' },
       });
+      items.push({
+        key: 'scope-visibility',
+        label: t('Filter scope visibility'),
+        className: 'filter-bar-scope-visibility-submenu',
+        children: [
+          [FilterBarScopeVisibility.Show, t('Show all filters')],
+          [FilterBarScopeVisibility.Group, t('Group out-of-scope filters')],
+          [FilterBarScopeVisibility.Hide, t('Hide out-of-scope filters')],
+        ].map(([key, label]) => ({
+          key,
+          label: (
+            <Space>
+              {label}
+              {selectedScopeVisibility === key && (
+                <Icons.CheckOutlined
+                  iconColor={theme.colorPrimary}
+                  iconSize="m"
+                />
+              )}
+            </Space>
+          ),
+        })),
+      });
+      items.push({
+        key: 'width-preset',
+        label: t('Filter bar width'),
+        className: 'filter-bar-width-submenu',
+        children: [
+          [FilterBarWidthPreset.Default, t('Default (260px)')],
+          [FilterBarWidthPreset.Medium, t('Medium (320px)')],
+          [FilterBarWidthPreset.Wide, t('Wide (400px)')],
+        ].map(([key, label]) => ({
+          key,
+          label: (
+            <Space>
+              {label}
+              {selectedWidthPreset === key && (
+                <Icons.CheckOutlined
+                  iconColor={theme.colorPrimary}
+                  iconSize="m"
+                />
+              )}
+            </Space>
+          ),
+        })),
+      });
+      items.push({
+        key: 'density',
+        label: t('Filter spacing'),
+        className: 'filter-bar-density-submenu',
+        children: [
+          [FilterBarDensity.Compact, t('Compact')],
+          [FilterBarDensity.Comfortable, t('Comfortable')],
+        ].map(([key, label]) => ({
+          key,
+          label: (
+            <Space>
+              {label}
+              {selectedDensity === key && (
+                <Icons.CheckOutlined
+                  iconColor={theme.colorPrimary}
+                  iconSize="m"
+                />
+              )}
+            </Space>
+          ),
+        })),
+      });
+      items.push({
+        key: FILTER_BAR_STICKY_MENU_KEY,
+        label: (
+          <StyledMenuLabel>
+            <Checkbox
+              name="sticky-filter-bar"
+              checked={sticky}
+              onChange={event => setSticky(event.target.checked)}
+            >
+              {t('Keep filter bar visible while scrolling')}
+            </Checkbox>
+          </StyledMenuLabel>
+        ),
+      });
     }
     return items;
   }, [
     selectedFilterBarOrientation,
+    selectedScopeVisibility,
+    selectedWidthPreset,
+    selectedDensity,
+    sticky,
     canEdit,
     crossFiltersMenuItem,
     dashboardId,
@@ -247,7 +454,12 @@ const FilterBarSettings = () => {
         menu={{
           onClick: handleClick,
           items: menuItems,
-          selectedKeys: [selectedFilterBarOrientation],
+          selectedKeys: [
+            selectedFilterBarOrientation,
+            selectedScopeVisibility,
+            selectedWidthPreset,
+            selectedDensity,
+          ],
         }}
         trigger={['click']}
         popupRender={menu => (

@@ -33,6 +33,7 @@ import {
   Divider,
   css,
   SupersetTheme,
+  styled,
   t,
   isNativeFilterWithDataMask,
 } from '@superset-ui/core';
@@ -46,7 +47,11 @@ import {
   useDashboardHasTabs,
   useSelectFiltersInScope,
 } from 'src/dashboard/components/nativeFilters/state';
-import { FilterBarOrientation, RootState } from 'src/dashboard/types';
+import {
+  FilterBarOrientation,
+  FilterBarScopeVisibility,
+  RootState,
+} from 'src/dashboard/types';
 import {
   DropdownContainer,
   type DropdownRef as DropdownContainerRef,
@@ -61,6 +66,15 @@ import crossFiltersSelector from '../CrossFilters/selectors';
 import CrossFilter from '../CrossFilters/CrossFilter';
 import { useFilterOutlined } from '../useFilterOutlined';
 import { useChartsVerboseMaps } from '../utils';
+import { getDisplayedFilters, getHiddenActiveFilterCount } from './utils';
+
+const HiddenActiveFiltersNotice = styled.div`
+  ${({ theme }) => css`
+    color: ${theme.colorTextSecondary};
+    font-size: ${theme.fontSizeSM}px;
+    padding: ${theme.sizeUnit * 2}px ${theme.sizeUnit * 4}px;
+  `}
+`;
 
 type FilterControlsProps = {
   dataMaskSelected: DataMaskStateWithId;
@@ -120,13 +134,36 @@ const FilterControls: FC<FilterControlsProps> = ({
   const [filtersInScope, filtersOutOfScope] =
     useSelectFiltersInScope(filtersWithValues);
 
+  const scopeVisibility = useSelector<RootState, FilterBarScopeVisibility>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_scope_visibility ??
+      FilterBarScopeVisibility.Group,
+  );
+  const displayedFilters = useMemo(
+    () =>
+      getDisplayedFilters(filtersWithValues, filtersInScope, scopeVisibility),
+    [filtersWithValues, filtersInScope, scopeVisibility],
+  );
+  const hiddenActiveFilterCount = useMemo(
+    () => getHiddenActiveFilterCount(filtersOutOfScope, scopeVisibility),
+    [filtersOutOfScope, scopeVisibility],
+  );
+  const hiddenActiveFiltersNotice = hiddenActiveFilterCount > 0 && (
+    <HiddenActiveFiltersNotice data-test="hidden-active-filters-notice">
+      {t('Applied filters hidden by scope: %d', hiddenActiveFilterCount)}
+    </HiddenActiveFiltersNotice>
+  );
+
   const hasRequiredFirst = useMemo(
     () => filtersWithValues.some(filter => filter.requiredFirst),
     [filtersWithValues],
   );
 
   const dashboardHasTabs = useDashboardHasTabs();
-  const showCollapsePanel = dashboardHasTabs && filtersWithValues.length > 0;
+  const showCollapsePanel =
+    scopeVisibility === FilterBarScopeVisibility.Group &&
+    dashboardHasTabs &&
+    filtersWithValues.length > 0;
 
   const renderer = useCallback(
     ({ id }: Filter | Divider, index: number | undefined) => {
@@ -147,7 +184,8 @@ const FilterControls: FC<FilterControlsProps> = ({
   const renderVerticalContent = useCallback(
     () => (
       <>
-        {filtersInScope.map(renderer)}
+        {hiddenActiveFiltersNotice}
+        {displayedFilters.map(renderer)}
         {showCollapsePanel && (
           <FiltersOutOfScopeCollapsible
             filtersOutOfScope={filtersOutOfScope}
@@ -158,7 +196,8 @@ const FilterControls: FC<FilterControlsProps> = ({
       </>
     ),
     [
-      filtersInScope,
+      displayedFilters,
+      hiddenActiveFiltersNotice,
       renderer,
       showCollapsePanel,
       filtersOutOfScope,
@@ -166,9 +205,9 @@ const FilterControls: FC<FilterControlsProps> = ({
     ],
   );
 
-  const overflowedFiltersInScope = useMemo(
-    () => filtersInScope.filter(({ id }) => overflowedIds?.includes(id)),
-    [filtersInScope, overflowedIds],
+  const overflowedDisplayedFilters = useMemo(
+    () => displayedFilters.filter(({ id }) => overflowedIds?.includes(id)),
+    [displayedFilters, overflowedIds],
   );
 
   const overflowedCrossFilters = useMemo(
@@ -180,11 +219,11 @@ const FilterControls: FC<FilterControlsProps> = ({
   );
 
   const activeOverflowedFiltersInScope = useMemo(() => {
-    const activeOverflowedFilters = overflowedFiltersInScope.filter(filter =>
+    const activeOverflowedFilters = overflowedDisplayedFilters.filter(filter =>
       isNativeFilterWithDataMask(filter),
     );
     return [...activeOverflowedFilters, ...overflowedCrossFilters];
-  }, [overflowedCrossFilters, overflowedFiltersInScope]);
+  }, [overflowedCrossFilters, overflowedDisplayedFilters]);
 
   const rendererCrossFilter = useCallback(
     (crossFilter, orientation, last) => (
@@ -192,13 +231,13 @@ const FilterControls: FC<FilterControlsProps> = ({
         filter={crossFilter}
         orientation={orientation}
         last={
-          filtersInScope.length > 0 &&
+          displayedFilters.length > 0 &&
           `${last.name}${last.emitterId}` ===
             `${crossFilter.name}${crossFilter.emitterId}`
         }
       />
     ),
-    [filtersInScope.length],
+    [displayedFilters.length],
   );
 
   const items = useMemo(() => {
@@ -212,7 +251,7 @@ const FilterControls: FC<FilterControlsProps> = ({
         selectedCrossFilters.at(-1),
       ),
     }));
-    const nativeFiltersInScope = filtersInScope.map((filter, index) => ({
+    const nativeFiltersInScope = displayedFilters.map((filter, index) => ({
       id: filter.id,
       element: (
         <div
@@ -226,7 +265,7 @@ const FilterControls: FC<FilterControlsProps> = ({
       ),
     }));
     return [...crossFilters, ...nativeFiltersInScope];
-  }, [filtersInScope, renderer, rendererCrossFilter, selectedCrossFilters]);
+  }, [displayedFilters, renderer, rendererCrossFilter, selectedCrossFilters]);
 
   const renderHorizontalContent = useCallback(
     () => (
@@ -237,6 +276,7 @@ const FilterControls: FC<FilterControlsProps> = ({
           flex: 1;
         `}
       >
+        {hiddenActiveFiltersNotice}
         <DropdownContainer
           items={items}
           dropdownTriggerIcon={
@@ -262,13 +302,13 @@ const FilterControls: FC<FilterControlsProps> = ({
                 )
           }
           dropdownContent={
-            overflowedFiltersInScope.length ||
+            overflowedDisplayedFilters.length ||
             overflowedCrossFilters.length ||
             (filtersOutOfScope.length && showCollapsePanel)
               ? () => (
                   <FiltersDropdownContent
                     overflowedCrossFilters={overflowedCrossFilters}
-                    filtersInScope={overflowedFiltersInScope}
+                    filtersInScope={overflowedDisplayedFilters}
                     filtersOutOfScope={filtersOutOfScope}
                     renderer={renderer}
                     rendererCrossFilter={rendererCrossFilter}
@@ -296,8 +336,9 @@ const FilterControls: FC<FilterControlsProps> = ({
     ),
     [
       items,
+      hiddenActiveFiltersNotice,
       activeOverflowedFiltersInScope,
-      overflowedFiltersInScope,
+      overflowedDisplayedFilters,
       overflowedCrossFilters,
       filtersOutOfScope,
       showCollapsePanel,
@@ -309,17 +350,17 @@ const FilterControls: FC<FilterControlsProps> = ({
   );
 
   const overflowedByIndex = useMemo(() => {
-    const filtersOutOfScopeIds = new Set(filtersOutOfScope.map(({ id }) => id));
-    const overflowedFiltersInScopeIds = new Set(
-      overflowedFiltersInScope.map(({ id }) => id),
+    const displayedFilterIds = new Set(displayedFilters.map(({ id }) => id));
+    const overflowedDisplayedFilterIds = new Set(
+      overflowedDisplayedFilters.map(({ id }) => id),
     );
 
     return filtersWithValues.map(
       filter =>
-        filtersOutOfScopeIds.has(filter.id) ||
-        overflowedFiltersInScopeIds.has(filter.id),
+        !displayedFilterIds.has(filter.id) ||
+        overflowedDisplayedFilterIds.has(filter.id),
     );
-  }, [filtersOutOfScope, filtersWithValues, overflowedFiltersInScope]);
+  }, [displayedFilters, filtersWithValues, overflowedDisplayedFilters]);
 
   useEffect(() => {
     if (outlinedFilterId && overflowedIds.includes(outlinedFilterId)) {

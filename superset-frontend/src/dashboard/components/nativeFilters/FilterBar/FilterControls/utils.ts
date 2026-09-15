@@ -25,6 +25,22 @@ import {
   unsetHoveredNativeFilter,
 } from 'src/dashboard/actions/nativeFilters';
 import { Constants } from '@superset-ui/core/components';
+import { Divider, Filter, isNativeFilterWithDataMask } from '@superset-ui/core';
+import { FilterBarScopeVisibility } from 'src/dashboard/types';
+
+export const getDisplayedFilters = (
+  filters: (Filter | Divider)[],
+  filtersInScope: (Filter | Divider)[],
+  visibility: FilterBarScopeVisibility,
+) => (visibility === FilterBarScopeVisibility.Show ? filters : filtersInScope);
+
+export const getHiddenActiveFilterCount = (
+  filtersOutOfScope: (Filter | Divider)[],
+  visibility: FilterBarScopeVisibility,
+) =>
+  visibility === FilterBarScopeVisibility.Hide
+    ? filtersOutOfScope.filter(isNativeFilterWithDataMask).length
+    : 0;
 
 export const dispatchHoverAction = debounce(
   (dispatch: Dispatch<any>, id?: string) => {
