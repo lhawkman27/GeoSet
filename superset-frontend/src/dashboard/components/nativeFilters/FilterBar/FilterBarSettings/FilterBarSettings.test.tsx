@@ -321,7 +321,7 @@ test('Can save a filter bar width preset', async () => {
   });
   await setup();
   userEvent.click(screen.getByRole('button', { name: 'setting' }));
-  userEvent.hover(screen.getByText('Filter bar width'));
+  userEvent.hover(screen.getByText('Vertical filter bar width'));
   userEvent.click(await screen.findByText('Wide (400px)'));
 
   await waitFor(() =>
@@ -374,7 +374,7 @@ test('Can disable sticky filter bar behavior', async () => {
   await setup();
   userEvent.click(screen.getByRole('button', { name: 'setting' }));
   const stickyCheckbox = screen.getByRole('checkbox', {
-    name: 'Keep filter bar visible while scrolling',
+    name: 'Keep vertical filter bar visible while scrolling',
   });
   expect(stickyCheckbox).toBeChecked();
   userEvent.click(stickyCheckbox);

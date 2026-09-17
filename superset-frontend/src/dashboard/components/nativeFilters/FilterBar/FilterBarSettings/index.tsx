@@ -373,7 +373,7 @@ const FilterBarSettings = () => {
       });
       items.push({
         key: 'width-preset',
-        label: t('Filter bar width'),
+        label: t('Vertical filter bar width'),
         className: 'filter-bar-width-submenu',
         children: [
           [FilterBarWidthPreset.Default, t('Default (260px)')],
@@ -425,7 +425,7 @@ const FilterBarSettings = () => {
               checked={sticky}
               onChange={event => setSticky(event.target.checked)}
             >
-              {t('Keep filter bar visible while scrolling')}
+              {t('Keep vertical filter bar visible while scrolling')}
             </Checkbox>
           </StyledMenuLabel>
         ),
