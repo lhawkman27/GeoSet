@@ -17,6 +17,7 @@
  * under the License.
  */
 import { memo, useContext, useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
 import {
   createHtmlPortalNode,
   InPortal,
@@ -29,7 +30,7 @@ import {
   Icons,
   Tooltip,
 } from '@superset-ui/core/components';
-import { FilterBarOrientation } from 'src/dashboard/types';
+import { FilterBarOrientation, RootState } from 'src/dashboard/types';
 import { checkIsMissingRequiredValue } from '../utils';
 import FilterValue from './FilterValue';
 import { FilterCard } from '../../FilterCard';
@@ -299,6 +300,10 @@ const FilterControl = ({
 }: FilterControlProps) => {
   const portalNode = useMemo(() => createHtmlPortalNode(), []);
   const [isFilterActive, setIsFilterActive] = useState(false);
+  const showHoverCard = useSelector<RootState, boolean>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_show_hover_card ?? true,
+  );
 
   const { name = '<undefined>' } = filter;
 
@@ -336,6 +341,7 @@ const FilterControl = ({
     [
       FilterControlTitleBox,
       FilterControlTitle,
+      filter.id,
       name,
       isRequired,
       filter.description,
@@ -353,6 +359,19 @@ const FilterControl = ({
     }
     return FilterCardPlacement.Right;
   }, [orientation, overflow]);
+
+  const filterControlContent = (
+    <div>
+      <FormItem
+        label={label}
+        htmlFor={filter.id}
+        required={filter?.controlValues?.enableEmptyFilter}
+        validateStatus={validateStatus}
+      >
+        <OutPortal node={portalNode} />
+      </FormItem>
+    </div>
+  );
 
   return (
     <>
@@ -379,22 +398,17 @@ const FilterControl = ({
             : 'vertical'
         }
       >
-        <FilterCard
-          filter={filter}
-          isVisible={!isFilterActive && !isScrolling}
-          placement={filterCardPlacement}
-        >
-          <div>
-            <FormItem
-              label={label}
-              htmlFor={filter.id}
-              required={filter?.controlValues?.enableEmptyFilter}
-              validateStatus={validateStatus}
-            >
-              <OutPortal node={portalNode} />
-            </FormItem>
-          </div>
-        </FilterCard>
+        {showHoverCard ? (
+          <FilterCard
+            filter={filter}
+            isVisible={!isFilterActive && !isScrolling}
+            placement={filterCardPlacement}
+          >
+            {filterControlContent}
+          </FilterCard>
+        ) : (
+          filterControlContent
+        )}
       </FilterControlContainer>
     </>
   );

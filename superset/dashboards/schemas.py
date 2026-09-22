@@ -170,6 +170,7 @@ class DashboardJSONMetadataSchema(Schema):
     filter_bar_width_preset = fields.Str(allow_none=True)
     filter_bar_density = fields.Str(allow_none=True)
     filter_bar_sticky = fields.Boolean(allow_none=True)
+    filter_bar_show_hover_card = fields.Boolean(allow_none=True)
     native_filter_migration = fields.Dict()
 
     @pre_load

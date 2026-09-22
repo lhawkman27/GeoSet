@@ -34,6 +34,7 @@ import {
   saveFilterBarScopeVisibility,
   saveFilterBarWidthPreset,
   saveFilterBarSticky,
+  saveFilterBarShowHoverCard,
   saveCrossFiltersSetting,
 } from 'src/dashboard/actions/dashboardInfo';
 import { Icons } from '@superset-ui/core/components/Icons';
@@ -67,6 +68,7 @@ const CROSS_FILTERS_MENU_KEY = 'cross-filters-menu-key';
 const CROSS_FILTERS_SCOPING_MENU_KEY = 'cross-filters-scoping-menu-key';
 const ADD_EDIT_FILTERS_MENU_KEY = 'add-edit-filters-menu-key';
 const FILTER_BAR_STICKY_MENU_KEY = 'filter-bar-sticky-menu-key';
+const FILTER_BAR_HOVER_CARD_MENU_KEY = 'filter-bar-hover-card-menu-key';
 
 const isOrientation = (o: SelectedKey): o is FilterBarOrientation =>
   o === FilterBarOrientation.Vertical || o === FilterBarOrientation.Horizontal;
@@ -121,6 +123,11 @@ const FilterBarSettings = () => {
     ({ dashboardInfo }) => dashboardInfo.metadata?.filter_bar_sticky ?? true,
   );
   const [sticky, setSticky] = useState(filterBarSticky);
+  const filterBarShowHoverCard = useSelector<RootState, boolean>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_show_hover_card ?? true,
+  );
+  const [showHoverCard, setShowHoverCard] = useState(filterBarShowHoverCard);
 
   const [crossFiltersEnabled, setCrossFiltersEnabled] = useState<boolean>(
     isCrossFiltersEnabled,
@@ -228,6 +235,16 @@ const FilterBarSettings = () => {
     }
   }, [dispatch, filterBarSticky, sticky]);
 
+  const toggleHoverCard = useCallback(async () => {
+    const nextShowHoverCard = !showHoverCard;
+    setShowHoverCard(nextShowHoverCard);
+    try {
+      await dispatch(saveFilterBarShowHoverCard(nextShowHoverCard));
+    } catch {
+      setShowHoverCard(filterBarShowHoverCard);
+    }
+  }, [dispatch, filterBarShowHoverCard, showHoverCard]);
+
   const handleClick = useCallback(
     (
       selection: Parameters<
@@ -247,6 +264,8 @@ const FilterBarSettings = () => {
         updateDensity(selectedKey);
       } else if (selectedKey === FILTER_BAR_STICKY_MENU_KEY) {
         toggleSticky();
+      } else if (selectedKey === FILTER_BAR_HOVER_CARD_MENU_KEY) {
+        toggleHoverCard();
       } else if (selectedKey === CROSS_FILTERS_SCOPING_MENU_KEY) {
         openScopingModal();
       } else if (selectedKey === ADD_EDIT_FILTERS_MENU_KEY) {
@@ -261,6 +280,7 @@ const FilterBarSettings = () => {
       updateWidthPreset,
       updateDensity,
       toggleSticky,
+      toggleHoverCard,
       openFilterConfigModal,
     ],
   );
@@ -430,6 +450,20 @@ const FilterBarSettings = () => {
           </StyledMenuLabel>
         ),
       });
+      items.push({
+        key: FILTER_BAR_HOVER_CARD_MENU_KEY,
+        label: (
+          <StyledMenuLabel>
+            <Checkbox
+              name="show-filter-hover-card"
+              checked={showHoverCard}
+              onChange={event => setShowHoverCard(event.target.checked)}
+            >
+              {t('Show filter details on hover')}
+            </Checkbox>
+          </StyledMenuLabel>
+        ),
+      });
     }
     return items;
   }, [
@@ -438,6 +472,7 @@ const FilterBarSettings = () => {
     selectedWidthPreset,
     selectedDensity,
     sticky,
+    showHoverCard,
     canEdit,
     crossFiltersMenuItem,
     dashboardId,

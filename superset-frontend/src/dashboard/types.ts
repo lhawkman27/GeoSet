@@ -165,6 +165,7 @@ export type DashboardInfo = {
     filter_bar_width_preset?: FilterBarWidthPreset;
     filter_bar_density?: FilterBarDensity;
     filter_bar_sticky?: boolean;
+    filter_bar_show_hover_card?: boolean;
   };
   crossFiltersEnabled: boolean;
   filterBarOrientation: FilterBarOrientation;

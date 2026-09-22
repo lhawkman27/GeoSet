@@ -266,14 +266,6 @@ export function saveFilterBarWidthPreset(preset: FilterBarWidthPreset) {
   };
 }
 
-export function saveFilterBarDensity(density: FilterBarDensity) {
-  return saveFilterBarMetadata({ filter_bar_density: density });
-}
-
-export function saveFilterBarSticky(sticky: boolean) {
-  return saveFilterBarMetadata({ filter_bar_sticky: sticky });
-}
-
 function saveFilterBarMetadata(metadataUpdate: Record<string, unknown>) {
   return async (dispatch: Dispatch, getState: () => RootState) => {
     const { id, metadata } = getState().dashboardInfo;
@@ -301,6 +293,20 @@ function saveFilterBarMetadata(metadataUpdate: Record<string, unknown>) {
       throw errorObject;
     }
   };
+}
+
+export function saveFilterBarDensity(density: FilterBarDensity) {
+  return saveFilterBarMetadata({ filter_bar_density: density });
+}
+
+export function saveFilterBarSticky(sticky: boolean) {
+  return saveFilterBarMetadata({ filter_bar_sticky: sticky });
+}
+
+export function saveFilterBarShowHoverCard(showHoverCard: boolean) {
+  return saveFilterBarMetadata({
+    filter_bar_show_hover_card: showHoverCard,
+  });
 }
 
 export function saveCrossFiltersSetting(crossFiltersEnabled: boolean) {

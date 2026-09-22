@@ -390,3 +390,32 @@ test('Can disable sticky filter bar behavior', async () => {
     ),
   );
 });
+
+test('Can disable filter details on hover', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_show_hover_card: false,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  const hoverCardCheckbox = screen.getByRole('checkbox', {
+    name: 'Show filter details on hover',
+  });
+  expect(hoverCardCheckbox).toBeChecked();
+  userEvent.click(hoverCardCheckbox);
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_show_hover_card: false,
+        }),
+      }),
+    ),
+  );
+});
