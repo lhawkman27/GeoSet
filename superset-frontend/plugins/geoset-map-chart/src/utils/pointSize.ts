@@ -5,5 +5,5 @@
  */
 export const getDynamicPointZoomScale = (zoom: number): number => {
   if (!Number.isFinite(zoom)) return 1;
-  return Math.min(2.5, 1 + Math.max(0, zoom - 8) * 0.125);
+  return Math.min(3, 1 + Math.max(0, zoom - 8) * 0.15);
 };
