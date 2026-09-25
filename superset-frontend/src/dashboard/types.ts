@@ -68,6 +68,23 @@ export enum FilterBarOrientation {
   Horizontal = 'HORIZONTAL',
 }
 
+export enum FilterBarScopeVisibility {
+  Show = 'SHOW',
+  Group = 'GROUP',
+  Hide = 'HIDE',
+}
+
+export enum FilterBarWidthPreset {
+  Default = 'DEFAULT',
+  Medium = 'MEDIUM',
+  Wide = 'WIDE',
+}
+
+export enum FilterBarDensity {
+  Compact = 'COMPACT',
+  Comfortable = 'COMFORTABLE',
+}
+
 // chart's cross filter scoping can have its custom value or point to the global configuration
 export const GLOBAL_SCOPE_POINTER = 'global';
 export type GlobalScopePointer = typeof GLOBAL_SCOPE_POINTER;
@@ -144,6 +161,11 @@ export type DashboardInfo = {
     shared_label_colors: string[];
     map_label_colors: JsonObject;
     cross_filters_enabled: boolean;
+    filter_bar_scope_visibility?: FilterBarScopeVisibility;
+    filter_bar_width_preset?: FilterBarWidthPreset;
+    filter_bar_density?: FilterBarDensity;
+    filter_bar_sticky?: boolean;
+    filter_bar_show_hover_card?: boolean;
   };
   crossFiltersEnabled: boolean;
   filterBarOrientation: FilterBarOrientation;

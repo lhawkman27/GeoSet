@@ -20,7 +20,13 @@
 import fetchMock from 'fetch-mock';
 import { waitFor, render, screen, within } from 'spec/helpers/testing-library';
 import userEvent from '@testing-library/user-event';
-import { DashboardInfo, FilterBarOrientation } from 'src/dashboard/types';
+import {
+  DashboardInfo,
+  FilterBarDensity,
+  FilterBarOrientation,
+  FilterBarScopeVisibility,
+  FilterBarWidthPreset,
+} from 'src/dashboard/types';
 import * as mockedMessageActions from 'src/components/MessageToasts/actions';
 import FilterBarSettings from '.';
 
@@ -103,7 +109,9 @@ test('Popover shows cross-filtering option on by default', async () => {
   });
   userEvent.click(settingsButton);
   expect(screen.getByText('Enable cross-filtering')).toBeInTheDocument();
-  expect(screen.getByRole('checkbox')).toBeChecked();
+  expect(
+    screen.getByRole('checkbox', { name: 'Enable cross-filtering' }),
+  ).toBeChecked();
 });
 
 test('Can enable/disable cross-filtering', async () => {
@@ -115,13 +123,17 @@ test('Can enable/disable cross-filtering', async () => {
     name: 'setting',
   });
   userEvent.click(settingsButton);
-  const initialCheckbox = screen.getByRole('checkbox');
+  const initialCheckbox = screen.getByRole('checkbox', {
+    name: 'Enable cross-filtering',
+  });
   expect(initialCheckbox).toBeChecked();
 
   userEvent.click(initialCheckbox);
 
   userEvent.click(screen.getByLabelText('setting'));
-  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(
+    screen.getByRole('checkbox', { name: 'Enable cross-filtering' }),
+  ).not.toBeChecked();
 });
 
 test('Popover opens with "Vertical" selected', async () => {
@@ -131,10 +143,10 @@ test('Popover opens with "Vertical" selected', async () => {
   });
   userEvent.click(settingsButton);
   userEvent.hover(screen.getByText('Orientation of filter bar'));
-  expect(await screen.findByText('Vertical (Left)')).toBeInTheDocument();
+  const verticalItem = await screen.findByText('Vertical (Left)');
   expect(screen.getByText('Horizontal (Top)')).toBeInTheDocument();
   expect(
-    within(screen.getAllByRole('menuitem')[4]).getByLabelText('check'),
+    within(verticalItem.closest('li')!).getByLabelText('check'),
   ).toBeInTheDocument();
 });
 
@@ -146,9 +158,9 @@ test('Popover opens with "Horizontal" selected', async () => {
   userEvent.click(settingsButton);
   userEvent.hover(screen.getByText('Orientation of filter bar'));
   expect(await screen.findByText('Vertical (Left)')).toBeInTheDocument();
-  expect(screen.getByText('Horizontal (Top)')).toBeInTheDocument();
+  const horizontalItem = screen.getByText('Horizontal (Top)');
   expect(
-    within(screen.getAllByRole('menuitem')[5]).getByLabelText('check'),
+    within(horizontalItem.closest('li')!).getByLabelText('check'),
   ).toBeInTheDocument();
 });
 
@@ -259,4 +271,151 @@ test('On failed request, restore previous selection', async () => {
       within(horizontalItemAfter.closest('li')!).queryByLabelText('check'),
     ).not.toBeInTheDocument();
   });
+});
+
+test('Uses grouped out-of-scope filters by default', async () => {
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  userEvent.hover(screen.getByText('Filter scope visibility'));
+
+  const groupedItem = await screen.findByText('Group out-of-scope filters');
+  expect(
+    within(groupedItem.closest('li')!).getByLabelText('check'),
+  ).toBeInTheDocument();
+});
+
+test('Can save hidden out-of-scope filters', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_scope_visibility: FilterBarScopeVisibility.Hide,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  userEvent.hover(screen.getByText('Filter scope visibility'));
+  userEvent.click(await screen.findByText('Hide out-of-scope filters'));
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_scope_visibility: FilterBarScopeVisibility.Hide,
+        }),
+      }),
+    ),
+  );
+});
+
+test('Can save a filter bar width preset', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_width_preset: FilterBarWidthPreset.Wide,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  userEvent.hover(screen.getByText('Vertical filter bar width'));
+  userEvent.click(await screen.findByText('Wide (400px)'));
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_width_preset: FilterBarWidthPreset.Wide,
+        }),
+      }),
+    ),
+  );
+});
+
+test('Can save compact filter spacing', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_density: FilterBarDensity.Compact,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  userEvent.hover(screen.getByText('Filter spacing'));
+  userEvent.click(await screen.findByText('Compact'));
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_density: FilterBarDensity.Compact,
+        }),
+      }),
+    ),
+  );
+});
+
+test('Can disable sticky filter bar behavior', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_sticky: false,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  const stickyCheckbox = screen.getByRole('checkbox', {
+    name: 'Keep vertical filter bar visible while scrolling',
+  });
+  expect(stickyCheckbox).toBeChecked();
+  userEvent.click(stickyCheckbox);
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_sticky: false,
+        }),
+      }),
+    ),
+  );
+});
+
+test('Can disable filter details on hover', async () => {
+  fetchMock.put('glob:*/api/v1/dashboard/1', {
+    result: {
+      json_metadata: JSON.stringify({
+        ...initialState.dashboardInfo.metadata,
+        filter_bar_show_hover_card: false,
+      }),
+    },
+  });
+  await setup();
+  userEvent.click(screen.getByRole('button', { name: 'setting' }));
+  const hoverCardCheckbox = screen.getByRole('checkbox', {
+    name: 'Show filter details on hover',
+  });
+  expect(hoverCardCheckbox).toBeChecked();
+  userEvent.click(hoverCardCheckbox);
+
+  await waitFor(() =>
+    expect(fetchMock.lastCall()?.[1]?.body).toEqual(
+      JSON.stringify({
+        json_metadata: JSON.stringify({
+          ...initialState.dashboardInfo.metadata,
+          filter_bar_show_hover_card: false,
+        }),
+      }),
+    ),
+  );
 });

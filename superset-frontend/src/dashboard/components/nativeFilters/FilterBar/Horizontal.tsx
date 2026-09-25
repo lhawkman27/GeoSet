@@ -20,7 +20,7 @@
 import { FC, memo, useMemo } from 'react';
 import { DataMaskStateWithId, styled, t } from '@superset-ui/core';
 import { Loading } from '@superset-ui/core/components';
-import { RootState } from 'src/dashboard/types';
+import { FilterBarDensity, RootState } from 'src/dashboard/types';
 import { useChartLayoutItems } from 'src/dashboard/util/useChartLayoutItems';
 import { useChartIds } from 'src/dashboard/util/charts/useChartIds';
 import { useSelector } from 'react-redux';
@@ -30,10 +30,12 @@ import { HorizontalBarProps } from './types';
 import FilterBarSettings from './FilterBarSettings';
 import crossFiltersSelector from './CrossFilters/selectors';
 
-const HorizontalBar = styled.div`
-  ${({ theme }) => `
-    padding: ${theme.sizeUnit * 3}px ${theme.sizeUnit * 2}px ${
-      theme.sizeUnit * 3
+const HorizontalBar = styled.div<{ density: FilterBarDensity }>`
+  ${({ theme, density }) => `
+    padding: ${
+      theme.sizeUnit * (density === FilterBarDensity.Compact ? 1 : 3)
+    }px ${theme.sizeUnit * 2}px ${
+      theme.sizeUnit * (density === FilterBarDensity.Compact ? 1 : 3)
     }px ${theme.sizeUnit * 4}px;
     background: ${theme.colorBgBase};
     box-shadow: inset 0px -2px 2px -1px ${theme.colorSplit};
@@ -75,6 +77,11 @@ const HorizontalFilterBar: FC<HorizontalBarProps> = ({
   const dataMask = useSelector<RootState, DataMaskStateWithId>(
     state => state.dataMask,
   );
+  const density = useSelector<RootState, FilterBarDensity>(
+    ({ dashboardInfo }) =>
+      dashboardInfo.metadata?.filter_bar_density ??
+      FilterBarDensity.Comfortable,
+  );
   const chartIds = useChartIds();
   const chartLayoutItems = useChartLayoutItems();
   const verboseMaps = useChartsVerboseMaps();
@@ -93,7 +100,11 @@ const HorizontalFilterBar: FC<HorizontalBarProps> = ({
   const hasFilters = filterValues.length > 0 || selectedCrossFilters.length > 0;
 
   return (
-    <HorizontalBar {...getFilterBarTestId()}>
+    <HorizontalBar
+      {...getFilterBarTestId()}
+      density={density}
+      data-filter-density={density}
+    >
       <HorizontalBarContent>
         {!isInitialized ? (
           <Loading position="inline-centered" />

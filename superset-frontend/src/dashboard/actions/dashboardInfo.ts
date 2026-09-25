@@ -22,7 +22,10 @@ import { addDangerToast } from 'src/components/MessageToasts/actions';
 import {
   ChartConfiguration,
   DashboardInfo,
+  FilterBarDensity,
   FilterBarOrientation,
+  FilterBarScopeVisibility,
+  FilterBarWidthPreset,
   GlobalChartCrossFilterConfig,
   RootState,
 } from 'src/dashboard/types';
@@ -193,6 +196,117 @@ export function saveFilterBarOrientation(orientation: FilterBarOrientation) {
       throw errorObject;
     }
   };
+}
+
+export function saveFilterBarScopeVisibility(
+  visibility: FilterBarScopeVisibility,
+) {
+  return async (dispatch: Dispatch, getState: () => RootState) => {
+    const { id, metadata } = getState().dashboardInfo;
+    const updateDashboard = makeApi<
+      Partial<DashboardInfo>,
+      { result: Partial<DashboardInfo>; last_modified_time: number }
+    >({
+      method: 'PUT',
+      endpoint: `/api/v1/dashboard/${id}`,
+    });
+
+    try {
+      const response = await updateDashboard({
+        json_metadata: JSON.stringify({
+          ...metadata,
+          filter_bar_scope_visibility: visibility,
+        }),
+      });
+      const { json_metadata: jsonMetadata } = response.result;
+      if (jsonMetadata) {
+        dispatch(dashboardInfoChanged({ metadata: JSON.parse(jsonMetadata) }));
+      }
+      if (response.last_modified_time) {
+        dispatch(onSave(response.last_modified_time));
+      }
+    } catch (errorObject) {
+      const errorText = await getErrorText(errorObject, 'dashboard');
+      dispatch(addDangerToast(errorText));
+      throw errorObject;
+    }
+  };
+}
+
+export function saveFilterBarWidthPreset(preset: FilterBarWidthPreset) {
+  return async (dispatch: Dispatch, getState: () => RootState) => {
+    const { id, metadata } = getState().dashboardInfo;
+    const updateDashboard = makeApi<
+      Partial<DashboardInfo>,
+      { result: Partial<DashboardInfo>; last_modified_time: number }
+    >({
+      method: 'PUT',
+      endpoint: `/api/v1/dashboard/${id}`,
+    });
+
+    try {
+      const response = await updateDashboard({
+        json_metadata: JSON.stringify({
+          ...metadata,
+          filter_bar_width_preset: preset,
+        }),
+      });
+      const { json_metadata: jsonMetadata } = response.result;
+      if (jsonMetadata) {
+        dispatch(dashboardInfoChanged({ metadata: JSON.parse(jsonMetadata) }));
+      }
+      if (response.last_modified_time) {
+        dispatch(onSave(response.last_modified_time));
+      }
+    } catch (errorObject) {
+      const errorText = await getErrorText(errorObject, 'dashboard');
+      dispatch(addDangerToast(errorText));
+      throw errorObject;
+    }
+  };
+}
+
+function saveFilterBarMetadata(metadataUpdate: Record<string, unknown>) {
+  return async (dispatch: Dispatch, getState: () => RootState) => {
+    const { id, metadata } = getState().dashboardInfo;
+    const updateDashboard = makeApi<
+      Partial<DashboardInfo>,
+      { result: Partial<DashboardInfo>; last_modified_time: number }
+    >({ method: 'PUT', endpoint: `/api/v1/dashboard/${id}` });
+    try {
+      const response = await updateDashboard({
+        json_metadata: JSON.stringify({ ...metadata, ...metadataUpdate }),
+      });
+      if (response.result.json_metadata) {
+        dispatch(
+          dashboardInfoChanged({
+            metadata: JSON.parse(response.result.json_metadata),
+          }),
+        );
+      }
+      if (response.last_modified_time) {
+        dispatch(onSave(response.last_modified_time));
+      }
+    } catch (errorObject) {
+      const errorText = await getErrorText(errorObject, 'dashboard');
+      dispatch(addDangerToast(errorText));
+      throw errorObject;
+    }
+  };
+}
+
+export function saveFilterBarDensity(density: FilterBarDensity) {
+  return saveFilterBarMetadata({ filter_bar_density: density });
+}
+
+export function saveFilterBarSticky(sticky: boolean) {
+  return saveFilterBarMetadata({ filter_bar_sticky: sticky });
+}
+
+export function saveFilterBarShowHoverCard(showHoverCard: boolean) {
+  return saveFilterBarMetadata({
+    filter_bar_show_hover_card: showHoverCard,
+  });
 }
 
 export function saveCrossFiltersSetting(crossFiltersEnabled: boolean) {
